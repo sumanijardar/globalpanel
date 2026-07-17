@@ -71,7 +71,7 @@ const apiServer = http.createServer(async (req, res) => {
       let panelMake = null;
       let handler = null;
 
-      // COMMENTED OUT FOR TESTING: sirif safe_smart_sites table use karna hai
+      // COMMENTED OUT FOR TESTING: sirif sites table use karna hai
       /*
       let [rows] = await pool.query(
         "SELECT Panel_Make FROM sites_zicom WHERE NewPanelID = ? LIMIT 1",
@@ -79,9 +79,9 @@ const apiServer = http.createServer(async (req, res) => {
       );
       */
 
-      // Sirf safe_smart_sites se fetch kar rahe hain for now
+      // Sirf sites se fetch kar rahe hain for now
       let [rows] = await pool.query(
-        "SELECT Panel_Make FROM safe_smart_sites WHERE NewPanelID = ? LIMIT 1",
+        "SELECT Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1",
         [account]
       );
 

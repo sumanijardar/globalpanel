@@ -3,7 +3,7 @@ const pool = require("../config/database");
 const { panelConfigCache } = require("../config/routing");
 const decodeSIA = require("../decoders/smarti_decoder");
 
-const TCP_PORT = 5000;
+const TCP_PORT = 5500;
 
 
 const activeSockets = new Map();   // account -> socket
@@ -81,12 +81,12 @@ function buildSIACommand(commandType, account, zone = "000", receiver = "R000001
   const seq = String(outSequence++).padStart(4, '0');
   if (outSequence > 9999) outSequence = 1;
   const ts = getTimestamp();
-  
+
   // Zicom panels strictly expect a 6-digit account number (e.g., #040205 instead of #40205)
   const paddedAccount = String(account).padStart(6, '0');
 
   let dataWithoutTs;
-  
+
   if (commandPayload.startsWith('[')) {
     // If it's an extended payload (like ARM: [N|005|A]), format with NYY005
     dataWithoutTs = `"SIA-DCS"${seq}${receiver}${line}#${paddedAccount}[#${paddedAccount}|NYY005]${commandPayload}`;
@@ -278,7 +278,7 @@ function initiatePanelConnection(panelId, ip) {
 
 async function connectToAllPanels() {
   try {
-    const [rows] = await pool.query("SELECT NewPanelID, dvrip FROM safe_smart_sites WHERE Panel_Make LIKE '%smart%' AND dvrip IS NOT NULL AND dvrip != '' LIMIT 15");
+    const [rows] = await pool.query("SELECT NewPanelID, dvrip FROM sites WHERE Panel_Make LIKE '%smart%' AND dvrip IS NOT NULL AND dvrip != '' LIMIT 15");
     if (rows && rows.length > 0) {
       console.log(`\n🔄 [SMARTI] Found ${rows.length} smart panels with IPs in database. Initiating outgoing connections...`);
       for (const row of rows) {
