@@ -253,10 +253,11 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
 }
 
 function initiatePanelConnection(panelId, ip) {
-  console.log(`\n⏳ [SMARTI] Attempting OUTGOING connection to Panel #${panelId} at IP: ${ip}:${TCP_PORT}...`);
+  const OUTGOING_PORT = 5000;
+  console.log(`\n⏳ [SMARTI] Attempting OUTGOING connection to Panel #${panelId} at IP: ${ip}:${OUTGOING_PORT}...`);
   const socket = new net.Socket();
 
-  socket.connect(TCP_PORT, ip, () => {
+  socket.connect(OUTGOING_PORT, ip, () => {
     console.log(`✅ [SMARTI] Successfully connected to Panel #${panelId} (${ip})`);
     activeSockets.set(panelId, socket);
     handleSocketEvents(socket, ip, panelId);
