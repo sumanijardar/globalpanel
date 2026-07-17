@@ -1,0 +1,8 @@
+node_modules/
+.env
+dist/
+build/
+ZICOM-ATM-G1_32 Zone SIA code.xlsx
+read_excel.js
+smarti_sheets.txt
+patch_smarti.js
