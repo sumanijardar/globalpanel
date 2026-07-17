@@ -55,7 +55,8 @@ function parseSIAHeader(message) {
 }
 
 function buildACK(header) {
-  const body = `"ACK"${header.sequence}${header.receiver}${header.line}#${header.account}[]`;
+  const ts = getTimestamp();
+  const body = `"ACK"${header.sequence}${header.receiver}${header.line}#${header.account}[]_${ts}`;
   const crc = calculateCRC16(body);
   const len = calculateLength(body);
   return `\n${crc}${len}${body}\r`;
@@ -242,7 +243,9 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         }
       }
       if (!commandSentFromQueue && !message.includes('"ACK"')) {
-        socket.write(buildACK(header));
+        const ackMsg = buildACK(header);
+        socket.write(ackMsg);
+        console.log(`📤 [SMARTI] ACK Sent: ${ackMsg.trim()}`);
       }
     }
   });
