@@ -6,12 +6,13 @@ const pool = require("./config/database");
 const mayurProtocol = require("./protocols/mayur");
 const rassProtocol = require("./protocols/rass");
 const smartiProtocol = require("./protocols/smarti");
+const raxProtocol = require("./protocols/rax");
 
 const fs = require("fs");
 const path = require("path");
 
 // Load server configuration for enabling/disabling protocols
-let serverConfig = { RUN_MAYUR: true, RUN_RASS: true, RUN_SMARTI: true };
+let serverConfig = { RUN_MAYUR: true, RUN_RASS: true, RUN_SMARTI: true, RUN_RAX: true };
 const configPath = path.join(__dirname, 'server_config.json');
 
 try {
@@ -48,6 +49,13 @@ if (serverConfig.RUN_SMARTI) {
   smartiProtocol.startServer();
 } else {
   console.log("⏸️ SMARTI Protocol is DISABLED (Check server_config.json)");
+}
+
+if (serverConfig.RUN_RAX) {
+  console.log("✅ Starting RAX Protocol");
+  raxProtocol.startServer();
+} else {
+  console.log("⏸️ RAX Protocol is DISABLED (Check server_config.json)");
 }
 
 // ============================================================================
@@ -92,6 +100,7 @@ const apiServer = http.createServer(async (req, res) => {
         const mayurDevices = mayurProtocol.getStatus().devices;
         const rassDevices = rassProtocol.getStatus().devices;
         const smartiDevices = smartiProtocol.getStatus().devices;
+        const raxDevices = raxProtocol.getStatus().devices;
 
         if (mayurDevices.find(d => d.account === account && d.connected) || mayurProtocol.getEvents(account, 1).count > 0) {
           panelMake = 'MAYUR';
@@ -99,6 +108,8 @@ const apiServer = http.createServer(async (req, res) => {
           panelMake = 'RASS';
         } else if (smartiDevices.find(d => d.account === account && d.connected) || smartiProtocol.getEvents(account, 1).count > 0) {
           panelMake = 'SMARTI';
+        } else if (raxDevices.find(d => d.account === account && d.connected) || raxProtocol.getEvents(account, 1).count > 0) {
+          panelMake = 'RAX';
         }
       }
 
@@ -110,6 +121,7 @@ const apiServer = http.createServer(async (req, res) => {
       if (panelMake === 'MAYUR') handler = mayurProtocol;
       else if (panelMake === 'RASS') handler = rassProtocol;
       else if (panelMake.includes('SMART') || panelMake.includes('SMAERT')) handler = smartiProtocol;
+      else if (panelMake === 'RAX' || panelMake === 'REX') handler = raxProtocol;
 
       if (!handler) {
         res.writeHead(400);
@@ -181,8 +193,9 @@ const apiServer = http.createServer(async (req, res) => {
       const mayurEvts = mayurProtocol.getEvents(null, last).events;
       const rassEvts = rassProtocol.getEvents(null, last).events;
       const smartiEvts = smartiProtocol.getEvents(null, last).events;
+      const raxEvts = raxProtocol.getEvents(null, last).events;
       res.writeHead(200);
-      res.end(JSON.stringify({ success: true, count: mayurEvts.length + rassEvts.length + smartiEvts.length, mayurEvents: mayurEvts, rassEvents: rassEvts, smartiEvents: smartiEvts }));
+      res.end(JSON.stringify({ success: true, count: mayurEvts.length + rassEvts.length + smartiEvts.length + raxEvts.length, mayurEvents: mayurEvts, rassEvents: rassEvts, smartiEvents: smartiEvts, raxEvents: raxEvts }));
     }
   }
 
@@ -191,8 +204,9 @@ const apiServer = http.createServer(async (req, res) => {
     const mayurStatus = mayurProtocol.getStatus().devices;
     const rassStatus = rassProtocol.getStatus().devices;
     const smartiStatus = smartiProtocol.getStatus().devices;
+    const raxStatus = raxProtocol.getStatus().devices;
     res.writeHead(200);
-    res.end(JSON.stringify({ success: true, mayur: mayurStatus, rass: rassStatus, smarti: smartiStatus }));
+    res.end(JSON.stringify({ success: true, mayur: mayurStatus, rass: rassStatus, smarti: smartiStatus, rax: raxStatus }));
   }
 
   else {
