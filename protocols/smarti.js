@@ -282,7 +282,7 @@ function initiatePanelConnection(panelId, ip) {
 
 async function connectToAllPanels() {
   try {
-    const [rows] = await pool.query("SELECT NewPanelID, dvrip FROM sites WHERE Panel_Make LIKE '%smart%' AND dvrip IS NOT NULL AND dvrip != '' LIMIT 15");
+    const [rows] = await pool.query("SELECT NewPanelID, dvrip FROM sites WHERE Panel_Make LIKE '%smart%' AND dvrip IS NOT NULL AND dvrip != '' ");
     if (rows && rows.length > 0) {
       console.log(`\n🔄 [SMARTI] Found ${rows.length} smart panels with IPs in database. Initiating outgoing connections...`);
       for (const row of rows) {
