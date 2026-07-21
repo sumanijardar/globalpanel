@@ -159,7 +159,7 @@ function decodeSIA(message) {
     }
 
     // Parse specific responses based on the documentation
-    if (message.includes("OUTPUT OK")) {
+    if (message.includes("OUTPUT OK") || message.includes("OUTPUT received OK")) {
         result.event = "Output control command acknowledged";
         result.code = "OUTPUT_ACK";
     } else if (message.includes("PORT OK")) {

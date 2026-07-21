@@ -35,7 +35,7 @@ async function getOrRegisterRAX(account, macId = null) {
   return null;
 }
 
-const TCP_PORT = 7777;
+const TCP_PORT = 5501;
 const activeSockets = new Map();
 const eventLog = [];
 const MAX_LOG = 100;
@@ -43,38 +43,55 @@ const commandQueue = new Map();
 const connectWaiters = new Map();
 
 function buildRaxCommand(commandType, account, mac, zone = "000") {
-  let outputCommand = "";
   const cmd = commandType.toUpperCase();
 
-  if (cmd === 'EML_OFF') outputCommand = "OUTPUT010";
-  else if (cmd === 'EML_ON') outputCommand = "OUTPUT011";
-  else if (cmd === 'AC1_OFF') outputCommand = "OUTPUT020";
-  else if (cmd === 'AC1_ON' || cmd === 'AC1') outputCommand = "OUTPUT021";
-  else if (cmd === 'AC2_OFF') outputCommand = "OUTPUT030";
-  else if (cmd === 'AC2_ON' || cmd === 'AC2') outputCommand = "OUTPUT031";
-  else if (cmd === 'LIGHT1_OFF' || cmd === 'LIGHT_OFF') outputCommand = "OUTPUT040";
-  else if (cmd === 'LIGHT1_ON' || cmd === 'LIGHT_ON') outputCommand = "OUTPUT041";
-  else if (cmd === 'LIGHT2_OFF') outputCommand = "OUTPUT050";
-  else if (cmd === 'LIGHT2_ON') outputCommand = "OUTPUT051";
-  else if (cmd === 'HOOTER' || cmd === 'SIREN_ON') outputCommand = "OUTPUT008";
-  else if (cmd === 'ROUTER_RESET') outputCommand = "OUTPUT108";
-  else if (cmd === 'DVR_RESET') outputCommand = "OUTPUT098";
-  else if (cmd === 'SMOKE_RESET') outputCommand = "OUTPUT118";
-  else if (cmd === 'RESTART' || cmd === 'PANEL_RESTART') outputCommand = "RESET";
-  else if (cmd === 'READ_PORT_STATUS') return `STARTACC${account}MAC${mac}RPSENDD`;
-  else if (cmd === 'READ_CHANNEL_STATUS') return `STARTACC${account}MAC${mac}RCSENDD`;
-  else if (cmd === 'READ_PANEL_ID') return `STARTACC${account}MAC${mac}RRLAEND`;
+  // Output control (Relay commands) -> SSTART ... ENDD
+  const outputCommands = {
+    'EML_OFF': 'OUTPUT010', 'EML_ON': 'OUTPUT011',
+    'AC1_OFF': 'OUTPUT020', 'AC1_ON': 'OUTPUT021', 'AC1': 'OUTPUT021',
+    'AC2_OFF': 'OUTPUT030', 'AC2_ON': 'OUTPUT031', 'AC2': 'OUTPUT031',
+    'LIGHT1_OFF': 'OUTPUT040', 'LIGHT_OFF': 'OUTPUT040',
+    'LIGHT1_ON': 'OUTPUT041', 'LIGHT_ON': 'OUTPUT041',
+    'LIGHT2_OFF': 'OUTPUT050', 'LIGHT2_ON': 'OUTPUT051',
+    'HOOTER': 'OUTPUT008', 'SIREN_ON': 'OUTPUT008',
+    'ROUTER_RESET': 'OUTPUT108',
+    'DVR_RESET': 'OUTPUT098',
+    'SMOKE_RESET': 'OUTPUT118'
+  };
 
-  if (!outputCommand) return null;
+  if (outputCommands[cmd]) {
+    return `SSTARTACC${account}MAC${mac}${outputCommands[cmd]}ENDD`;
+  }
 
-  return `SSTARTACC${account}MAC${mac}${outputCommand}ENDD`;
+  // Panel Restart -> START ... RESETEND
+  if (cmd === 'RESTART' || cmd === 'PANEL_RESTART') {
+    return `STARTACC${account}MAC${mac}RESETEND`;
+  }
+
+  // Read Port Status -> START ... RPSENDD
+  if (cmd === 'READ_PORT_STATUS') {
+    return `STARTACC${account}MAC${mac}RPSENDD`;
+  }
+
+  // Read Channel Status -> START ... RCSEND
+  if (cmd === 'READ_CHANNEL_STATUS') {
+    return `STARTACC${account}MAC${mac}RCSEND`;
+  }
+
+  // Read Panel ID -> START ... RRLAEND
+  if (cmd === 'READ_PANEL_ID') {
+    return `STARTACC${account}MAC${mac}RRLAEND`;
+  }
+
+  return null;
 }
 
 function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
   if (socket.destroyed) return false;
 
   const meta = raxConfig[accountNo];
-  const mac = meta ? meta.mac_id : "000000000000000000";
+  const mac = meta ? meta.mac_id : "068183208169074154";
+  // const mac = meta ? meta.mac_id : "000000000000000000";
 
   const cmd = buildRaxCommand(commandType, accountNo, mac, zone);
   if (!cmd) return false;
