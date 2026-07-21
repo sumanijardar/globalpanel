@@ -1,6 +1,6 @@
 {
   "RUN_MAYUR": false,
   "RUN_RASS": false,
-  "RUN_SMARTI": false,
+  "RUN_SMARTI": true,
   "RUN_RAX": true
 }

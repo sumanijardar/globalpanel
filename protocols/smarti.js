@@ -299,8 +299,8 @@ async function connectToAllPanels() {
 }
 
 function startServer() {
-  connectToAllPanels();
-  setInterval(connectToAllPanels, 180000); // 3 minutes
+  // connectToAllPanels();
+  // setInterval(connectToAllPanels, 180000); // 3 minutes
 
   const tcpServer = net.createServer((socket) => {
     const remoteIp = socket.remoteAddress ? socket.remoteAddress.replace(/^.*:/, '').trim() : null;
@@ -358,6 +358,20 @@ function queueCommand(account, command, zone, maxWait = 60000) {
           }
         }
       });
+
+      // Attempt on-demand connection if not already connected
+      pool.query("SELECT dvrip FROM sites WHERE NewPanelID = ? AND dvrip IS NOT NULL AND dvrip != '' LIMIT 1", [account])
+        .then(([rows]) => {
+          if (rows && rows.length > 0) {
+            const ip = String(rows[0].dvrip).trim();
+            console.log(`\n🔄 [SMARTI] On-Demand connection triggered for Panel #${account} (IP: ${ip})`);
+            initiatePanelConnection(account, ip);
+          } else {
+            console.log(`\n⚠️ [SMARTI] Cannot connect on-demand to Panel #${account}: No valid IP found in DB.`);
+          }
+        })
+        .catch(err => console.error(`\n❌ [SMARTI] DB Error while fetching IP for on-demand connection:`, err.message));
+
       setTimeout(() => {
         if (!done) {
           done = true;
