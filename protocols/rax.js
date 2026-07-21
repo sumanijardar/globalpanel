@@ -90,7 +90,7 @@ function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
   if (socket.destroyed) return false;
 
   const meta = raxConfig[accountNo];
-  const mac = meta ? meta.mac_id : "104039025063105206";
+  const mac = meta ? meta.mac_id : "104039025063106179";
   // const mac = meta ? meta.mac_id : "000000000000000000";
 
   const cmd = buildRaxCommand(commandType, accountNo, mac, zone);
@@ -185,22 +185,17 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
     eventLog.unshift({ ...decoded, raw: message, receivedAt: new Date().toISOString() });
     if (eventLog.length > MAX_LOG) eventLog.pop();
 
-    if (!socket.destroyed) {
-      let commandSentFromQueue = false;
-      if (currentAccount) {
-        const queue = commandQueue.get(currentAccount);
-        if (queue && queue.length > 0) {
-          const pending = [...queue];
-          commandQueue.set(currentAccount, []);
-          for (const item of pending) {
-            const cmd = buildRaxCommand(item.command, currentAccount, raxConfig[currentAccount] ? raxConfig[currentAccount].mac_id : "000000000000000000", item.zone || '000');
-            if (cmd) {
-              socket.write(cmd);
-              commandSentFromQueue = true;
-              if (item.resolve) item.resolve({ sent: true, command: item.command, zone: item.zone || '000', sentAt: new Date().toISOString() });
-            } else {
-              if (item.resolve) item.resolve({ sent: false, command: item.command });
-            }
+    if (!socket.destroyed && currentAccount) {
+      const queue = commandQueue.get(currentAccount);
+      if (queue && queue.length > 0) {
+        const pending = [...queue];
+        commandQueue.set(currentAccount, []);
+        for (const item of pending) {
+          const success = sendCommandToPanel(socket, item.command, currentAccount, item.zone || '000');
+          if (success) {
+            if (item.resolve) item.resolve({ sent: true, command: item.command, zone: item.zone || '000', sentAt: new Date().toISOString() });
+          } else {
+            if (item.resolve) item.resolve({ sent: false, command: item.command });
           }
         }
       }
@@ -221,6 +216,21 @@ function initiatePanelConnection(panelId, ip) {
     console.log(`✅ [RAX] Successfully connected to Panel #${panelId} (${ip})`);
     activeSockets.set(panelId, socket);
     handleSocketEvents(socket, ip, panelId);
+
+    // Send queued commands immediately upon connection
+    const queue = commandQueue.get(panelId);
+    if (queue && queue.length > 0) {
+      const pending = [...queue];
+      commandQueue.set(panelId, []);
+      for (const item of pending) {
+        const success = sendCommandToPanel(socket, item.command, panelId, item.zone || '000');
+        if (success) {
+          if (item.resolve) item.resolve({ sent: true, command: item.command, zone: item.zone || '000', sentAt: new Date().toISOString() });
+        } else {
+          if (item.resolve) item.resolve({ sent: false, command: item.command });
+        }
+      }
+    }
   });
 
   socket.on("error", (err) => {
