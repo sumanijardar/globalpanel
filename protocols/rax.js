@@ -196,10 +196,11 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
 }
 
 function initiatePanelConnection(panelId, ip) {
-  console.log(`\n⏳ [RAX] Attempting OUTGOING connection to Panel #${panelId} at IP: ${ip}:${TCP_PORT}...`);
+  const OUTGOING_PORT = 5000;
+  console.log(`\n⏳ [RAX] Attempting OUTGOING connection to Panel #${panelId} at IP: ${ip}:${OUTGOING_PORT}...`);
   const socket = new net.Socket();
 
-  socket.connect(TCP_PORT, ip, () => {
+  socket.connect(OUTGOING_PORT, ip, () => {
     console.log(`✅ [RAX] Successfully connected to Panel #${panelId} (${ip})`);
     activeSockets.set(panelId, socket);
     handleSocketEvents(socket, ip, panelId);
@@ -210,12 +211,12 @@ function initiatePanelConnection(panelId, ip) {
   });
 
   socket.on("close", () => {
-    console.log(`⚠️ [RAX] Connection closed for Panel #${panelId} (${ip}). Retrying in 10 minutes...`);
+    console.log(`⚠️ [RAX] Connection closed for Panel #${panelId} (${ip}). Retrying in 3 minutes...`);
     setTimeout(() => {
       if (!activeSockets.has(panelId) || activeSockets.get(panelId).destroyed) {
         initiatePanelConnection(panelId, ip);
       }
-    }, 600000); // 10 minutes
+    }, 180000); // 3 minutes
   });
 }
 
