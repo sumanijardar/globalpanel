@@ -90,7 +90,7 @@ function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
   if (socket.destroyed) return false;
 
   const meta = raxConfig[accountNo];
-  const mac = meta ? meta.mac_id : "068183208169074154";
+  const mac = meta ? meta.mac_id : "104039025063105206";
   // const mac = meta ? meta.mac_id : "000000000000000000";
 
   const cmd = buildRaxCommand(commandType, accountNo, mac, zone);
@@ -239,7 +239,7 @@ function initiatePanelConnection(panelId, ip) {
 
 async function connectToAllPanels() {
   try {
-    const [rows] = await pool.query("SELECT NewPanelID, dvrip FROM sites WHERE Panel_Make IN ('RAX', 'REX') AND dvrip IS NOT NULL AND dvrip != '' LIMIT 15");
+    const [rows] = await pool.query("SELECT NewPanelID, dvrip FROM sites WHERE Panel_Make IN ('RAX', 'REX') AND dvrip IS NOT NULL AND dvrip != ''");
     if (rows && rows.length > 0) {
       console.log(`\n🔄 [RAX] Found ${rows.length} RAX panels with IPs in database. Initiating outgoing connections...`);
       for (const row of rows) {
@@ -259,8 +259,8 @@ async function connectToAllPanels() {
 // 1. TCP SERVER
 // ==========================================
 function startServer() {
-  connectToAllPanels();
-  setInterval(connectToAllPanels, 600000); // 10 minutes
+  // connectToAllPanels();
+  // setInterval(connectToAllPanels, 600000); // 10 minutes
 
   const tcpServer = net.createServer((socket) => {
     const remoteIp = socket.remoteAddress ? socket.remoteAddress.replace(/^.*:/, '').trim() : null;
@@ -318,6 +318,19 @@ function queueCommand(account, command, zone, maxWait = 60000) {
           }
         }
       });
+      // Attempt on-demand connection if not already connected
+      pool.query("SELECT dvrip FROM sites WHERE NewPanelID = ? AND dvrip IS NOT NULL AND dvrip != '' LIMIT 1", [account])
+        .then(([rows]) => {
+          if (rows && rows.length > 0) {
+            const ip = String(rows[0].dvrip).trim();
+            console.log(`\n🔄 [RAX] On-Demand connection triggered for Panel #${account} (IP: ${ip})`);
+            initiatePanelConnection(account, ip);
+          } else {
+            console.log(`\n⚠️ [RAX] Cannot connect on-demand to Panel #${account}: No valid IP found in DB.`);
+          }
+        })
+        .catch(err => console.error(`\n❌ [RAX] DB Error while fetching IP for on-demand connection:`, err.message));
+
       setTimeout(() => {
         if (!done) {
           done = true;
