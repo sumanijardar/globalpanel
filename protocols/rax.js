@@ -218,20 +218,21 @@ function initiatePanelConnection(panelId, ip) {
     activeSockets.set(panelId, socket);
     handleSocketEvents(socket, ip, panelId);
 
-    // Send queued commands immediately upon connection
-    const queue = commandQueue.get(panelId);
-    if (queue && queue.length > 0) {
-      const pending = [...queue];
-      commandQueue.set(panelId, []);
-      for (const item of pending) {
-        const success = sendCommandToPanel(socket, item.command, panelId, item.zone || '000');
-        if (success) {
-          if (item.resolve) item.resolve({ sent: true, command: item.command, zone: item.zone || '000', sentAt: new Date().toISOString() });
-        } else {
-          if (item.resolve) item.resolve({ sent: false, command: item.command });
+    // Check and process pending commands with a short delay to allow panel readiness
+    setTimeout(() => {
+      if (socket.destroyed) return;
+      const queue = commandQueue.get(panelId);
+      if (queue && queue.length > 0) {
+        const pending = [...queue];
+        commandQueue.set(panelId, []);
+        for (const item of pending) {
+          const success = sendCommandToPanel(socket, item.command, panelId, item.zone || '000');
+          if (item.resolve) {
+            item.resolve({ sent: success, command: item.command, zone: item.zone || '000', sentAt: new Date().toISOString() });
+          }
         }
       }
-    }
+    }, 1500); // 1.5 second delay
   });
 
   socket.on("error", (err) => {
