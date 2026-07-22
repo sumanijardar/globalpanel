@@ -87,12 +87,28 @@ function buildRaxCommand(commandType, account, mac, zone = "000") {
   return null;
 }
 
-function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
+async function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
   if (socket.destroyed) return false;
 
-  const meta = raxConfig[accountNo];
-  const mac = meta ? meta.mac_id : "104039025063105206";
-  // const mac = meta ? meta.mac_id : "000000000000000000";
+  let mac = "104039025063105205"; // Default MAC
+
+  try {
+    const [rows] = await pool.query("SELECT mac_id FROM sites WHERE NewPanelID = ? LIMIT 1", [accountNo]);
+    if (rows && rows.length > 0 && rows[0].mac_id) {
+      mac = String(rows[0].mac_id).trim();
+      console.log(`\n🔍 [RAX] Fetched MAC from DB for Panel #${accountNo}: ${mac}`);
+    } else {
+      const meta = raxConfig[accountNo];
+      if (meta && meta.mac_id) {
+        mac = meta.mac_id;
+        console.log(`\n🔍 [RAX] Fetched MAC from config for Panel #${accountNo}: ${mac}`);
+      }
+    }
+  } catch (err) {
+    console.error(`❌ [RAX] DB Error fetching MAC for Panel #${accountNo}:`, err.message);
+    const meta = raxConfig[accountNo];
+    if (meta && meta.mac_id) mac = meta.mac_id;
+  }
 
   const cmd = buildRaxCommand(commandType, accountNo, mac, zone);
   if (!cmd) return false;
@@ -192,7 +208,7 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         const pending = [...queue];
         commandQueue.set(currentAccount, []);
         for (const item of pending) {
-          const success = sendCommandToPanel(socket, item.command, currentAccount, item.zone || '000');
+          const success = await sendCommandToPanel(socket, item.command, currentAccount, item.zone || '000');
           if (success) {
             if (item.resolve) item.resolve({ sent: true, command: item.command, zone: item.zone || '000', sentAt: new Date().toISOString() });
           } else {
@@ -219,14 +235,14 @@ function initiatePanelConnection(panelId, ip) {
     handleSocketEvents(socket, ip, panelId);
 
     // Check and process pending commands with a short delay to allow panel readiness
-    setTimeout(() => {
+    setTimeout(async () => {
       if (socket.destroyed) return;
       const queue = commandQueue.get(panelId);
       if (queue && queue.length > 0) {
         const pending = [...queue];
         commandQueue.set(panelId, []);
         for (const item of pending) {
-          const success = sendCommandToPanel(socket, item.command, panelId, item.zone || '000');
+          const success = await sendCommandToPanel(socket, item.command, panelId, item.zone || '000');
           if (item.resolve) {
             item.resolve({ sent: success, command: item.command, zone: item.zone || '000', sentAt: new Date().toISOString() });
           }
@@ -306,11 +322,11 @@ function checkConnection(account, maxWait = 60000) {
 }
 
 function queueCommand(account, command, zone, maxWait = 60000) {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     const sock = activeSockets.get(account);
     const timeBefore = new Date().toISOString();
     if (sock && !sock.destroyed) {
-      const success = sendCommandToPanel(sock, command, account, zone);
+      const success = await sendCommandToPanel(sock, command, account, zone);
       setTimeout(() => {
         const newEvents = eventLog.filter(e => e.account === account && e.receivedAt > timeBefore);
         resolve({ success, status: "sent_immediately", panelResponse: newEvents, responseCount: newEvents.length });
