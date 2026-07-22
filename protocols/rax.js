@@ -54,6 +54,7 @@ function buildRaxCommand(commandType, account, mac, zone = "000") {
     'LIGHT1_ON': 'OUTPUT041', 'LIGHT_ON': 'OUTPUT041',
     'LIGHT2_OFF': 'OUTPUT050', 'LIGHT2_ON': 'OUTPUT051',
     'HOOTER': 'OUTPUT008', 'SIREN_ON': 'OUTPUT008',
+    'SIREN_OFF': 'OUTPUT000',
     'ROUTER_RESET': 'OUTPUT108',
     'DVR_RESET': 'OUTPUT098',
     'SMOKE_RESET': 'OUTPUT118'
@@ -90,7 +91,7 @@ function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
   if (socket.destroyed) return false;
 
   const meta = raxConfig[accountNo];
-  const mac = meta ? meta.mac_id : "104039025063106179";
+  const mac = meta ? meta.mac_id : "104039025063105206";
   // const mac = meta ? meta.mac_id : "000000000000000000";
 
   const cmd = buildRaxCommand(commandType, accountNo, mac, zone);
