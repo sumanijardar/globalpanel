@@ -7,12 +7,12 @@ const mayurProtocol = require("./protocols/mayur");
 const rassProtocol = require("./protocols/rass");
 const smartiProtocol = require("./protocols/smarti");
 const raxProtocol = require("./protocols/rax");
-
+const securicoProtocol = require("./protocols/securico");
 const fs = require("fs");
 const path = require("path");
 
 // Load server configuration for enabling/disabling protocols
-let serverConfig = { RUN_MAYUR: true, RUN_RASS: true, RUN_SMARTI: true, RUN_RAX: true };
+let serverConfig = { RUN_MAYUR: true, RUN_RASS: true, RUN_SMARTI: true, RUN_RAX: true, RUN_SECURICO: true };
 const configPath = path.join(__dirname, 'server_config.json');
 
 try {
@@ -58,10 +58,17 @@ if (serverConfig.RUN_RAX) {
   console.log("⏸️ RAX Protocol is DISABLED (Check server_config.json)");
 }
 
+if (serverConfig.RUN_SECURICO) {
+  console.log("✅ Starting SECURICO Protocol");
+  securicoProtocol.startServer();
+} else {
+  console.log("⏸️ SECURICO Protocol is DISABLED (Check server_config.json)");
+}
+
 // ============================================================================
 // 🌐 UNIVERSAL HTTP API SERVER
 // ============================================================================
-const API_PORT = 3500;
+const API_PORT = 3000;
 
 const apiServer = http.createServer(async (req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -101,6 +108,7 @@ const apiServer = http.createServer(async (req, res) => {
         const rassDevices = rassProtocol.getStatus().devices;
         const smartiDevices = smartiProtocol.getStatus().devices;
         const raxDevices = raxProtocol.getStatus().devices;
+        const securicoDevices = securicoProtocol.getStatus().devices;
 
         if (mayurDevices.find(d => d.account === account && d.connected) || mayurProtocol.getEvents(account, 1).count > 0) {
           panelMake = 'MAYUR';
@@ -110,6 +118,8 @@ const apiServer = http.createServer(async (req, res) => {
           panelMake = 'SMARTI';
         } else if (raxDevices.find(d => d.account === account && d.connected) || raxProtocol.getEvents(account, 1).count > 0) {
           panelMake = 'RAX';
+        } else if (securicoDevices.find(d => d.account === account && d.connected) || securicoProtocol.getEvents(account, 1).count > 0) {
+          panelMake = 'SECURICO';
         }
       }
 
@@ -122,6 +132,7 @@ const apiServer = http.createServer(async (req, res) => {
       else if (panelMake === 'RASS') handler = rassProtocol;
       else if (panelMake.includes('SMART') || panelMake.includes('SMAERT')) handler = smartiProtocol;
       else if (panelMake === 'RAX' || panelMake === 'REX') handler = raxProtocol;
+      else if (panelMake.includes('SECURICO')) handler = securicoProtocol;
 
       if (!handler) {
         res.writeHead(400);
@@ -194,8 +205,9 @@ const apiServer = http.createServer(async (req, res) => {
       const rassEvts = rassProtocol.getEvents(null, last).events;
       const smartiEvts = smartiProtocol.getEvents(null, last).events;
       const raxEvts = raxProtocol.getEvents(null, last).events;
+      const securicoEvts = securicoProtocol.getEvents(null, last).events;
       res.writeHead(200);
-      res.end(JSON.stringify({ success: true, count: mayurEvts.length + rassEvts.length + smartiEvts.length + raxEvts.length, mayurEvents: mayurEvts, rassEvents: rassEvts, smartiEvents: smartiEvts, raxEvents: raxEvts }));
+      res.end(JSON.stringify({ success: true, count: mayurEvts.length + rassEvts.length + smartiEvts.length + raxEvts.length + securicoEvts.length, mayurEvents: mayurEvts, rassEvents: rassEvts, smartiEvents: smartiEvts, raxEvents: raxEvts, securicoEvents: securicoEvts }));
     }
   }
 
@@ -205,8 +217,9 @@ const apiServer = http.createServer(async (req, res) => {
     const rassStatus = rassProtocol.getStatus().devices;
     const smartiStatus = smartiProtocol.getStatus().devices;
     const raxStatus = raxProtocol.getStatus().devices;
+    const securicoStatus = securicoProtocol.getStatus().devices;
     res.writeHead(200);
-    res.end(JSON.stringify({ success: true, mayur: mayurStatus, rass: rassStatus, smarti: smartiStatus, rax: raxStatus }));
+    res.end(JSON.stringify({ success: true, mayur: mayurStatus, rass: rassStatus, smarti: smartiStatus, rax: raxStatus, securico: securicoStatus }));
   }
 
   else {

@@ -3,9 +3,14 @@ node_modules/
 dist/
 build/
 ZICOM-ATM-G1_32 Zone SIA code.xlsx
+SECURICO PANEL-GX 4816 -Integration Protocole and Commands- _16-12-2023.xls
 read_excel.js
 smarti_sheets.txt
 patch_smarti.js
 database.js
 *.pdf
 16_ZONE_FIRMWARE_TO_SOFTWARE_V3 (2).pdf
+read_xls.js
+read_xls.py
+xls_content.txt
+server_config.json
