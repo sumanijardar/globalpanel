@@ -35,7 +35,7 @@ async function getOrRegisterRAX(account, macId = null) {
   return null;
 }
 
-const TCP_PORT = 5501;
+const TCP_PORT = 5502;
 const activeSockets = new Map();
 const eventLog = [];
 const MAX_LOG = 100;
