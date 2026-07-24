@@ -1,0 +1,787 @@
+--- Sheet: CMS Handshake-Icoming Strings ---
+
+SECURICO GX 4816 IP A1
+CMS Handshake Incoming Strings From Panel To CMS Software
+"Power On Alert Msg :    <LF>4B480035""NULL""0000R000001L000000#666666[]_11:07:28,10-09-2018<CR>"
+"NAK Message Frame : <LF>19A90033""NAK""0000R000001L000000#666666[]_16:19:15,11-20-2015<CR>"
+"ACK Message Frame : <LF>19A90033""ACK""0000R000001L000000#666666[]<CR>"
+
+Hand Shake Process
+First Msg From Panel To :Server
+"<LF>4B480035""NULL""0000R000001L000000#666666[]_11:07:28,10-09-2018<CR>"
+"Msg send by Panel to server with wrong date and time stamp 11:07:28,10-09-2018"
+
+Server response NAK to : Panel
+"<LF>CCCC0025""NAK""0001R000001L000000#666666[]_20:01:42,01-20-2018<CR>"
+
+"Msg send by server to panel with correct date and time stamp20:01:42,01-20-2018"
+Panel Hand Shake is Complete
+
+Heart Beat Message - Heart Beat Msg Send by panel to Server every 10 min.
+
+Msg From Panel To :Server
+"<LF>4B480035""NULL""0000R000001L000000#666666[]_11:07:28,10-09-2018<CR>"
+
+Server response ACK to: panel
+"<LF>01F30020""ACK""0001R000001L000000#666666[]<CR>"
+
+
+Alarm Msg Body Content ( Incoming Strings From Panel To CMS Software)
+"<LF>38440048""SIA-DCS""0001R000001L000000#666666[#666666|NBA021]_14:00:00,06-22-2018<CR>"
+<LF>                 Line Feed
+38440048         check sum
+'SIA-DCS''         Protocol id
+0001                 Sequence Number
+R000001          Receiver Number
+L000000           Line Number
+123456             6 digit Panel ID
+NBA                  Zone Alert Code
+021                   Zone Number
+10:04:54           Time (HH:MM:SS)
+03-23-2018      Date(MM-DD-YYYY)
+<CR>                Carriage Returns
+
+--- Sheet: STATUS STRINGS & COMMNADS ---
+SECURICO PANEL SEC GX4816 IP PANEL STATUS STRINGS
+
+Zone Status Incoming Strings
+
+Received:
+"A6B8006F""SIA-DCS""0019R000001L000000#999999[#999999|8880008080080AAAAAAAAA8880008000AAAAAAAAAAAAAA1]_13:17:09,12-14-2023"
+
+Replied:
+"23A40020""ACK""0019R000001L000000#999999[]"
+
+ZONE STATUS EXPLANATION
+"A6B8006F""SIA-DCS""0019R000001L000000#999999[#999999|zone-1, zone-2, zone-3, zone-4, zone-4, zone-5….....zone-47]_13:17:09,12-14-2023"
+0 Normal
+1 Alert
+2 Not_coonected
+3 Short_
+4 Long open
+5 Hooter Ack
+6 Low
+7 High
+8 Close
+9 Open
+A Zone disable
+
+Relay Status Incoming Strings
+
+Received:
+"9473004C""SIA-DCS""0020R000001L000000#999999[#999999|001111155555]_13:17:09,12-14-2023"
+Replied:
+"17E10020""ACK""0020R000001L000000#999999[]"
+
+RELAY STATUS EXPLANATION
+"9473004C""SIA-DCS""0020R000001L000000#999999[#999999|Relay-1, Relay-2, Relay-3…....Relay-12]_13:17:09,12-14-2023"
+
+0 OFF
+1 ON
+2 Ack
+3 Pulse reset
+4 Hooter reset
+5 Disable
+
+
+Panel ARM/DISARM and USER STATUS-TCP Push Command
+
+Send Command
+"9C67004C""SIA-DCS""0001R000001L000000#999999[#999999|DCS010|R|000]_13:38:17,12-14-2023"
+Received:
+"p.0095""SIA-DCS""0129R000001L000000#999999[#999999|DCS010|000|25#00#00#00#00#00#00#00#00#00#00#00#00#00#00#00#00#00#00#25#25#25#25#25#10]_13:38:17,12-14-2023"
+
+RECEIVED RESPONSE STRING EXPLANATION
+
+"p.0095""SIA-DCS""0129R000001L000000#999999[#999999|DCS010|000|ADMIN USER-00#USER-1#USER-2#USER-3#USER-4#USER-5#USER-6#USER-7#USER-8#USER-9#USER-10#USER-11#USER-12#USER-13#USER-14#USER-15#USER-16#USER-17#USER-18#ARMIN USER-21#ARMIN USER-22#ARMIN USER-23#ARMIN USER-24#ARMIN USER-25#ENGINEERING USER-99]_13:38:17,12-14-2023"
+
+FOR- #ADMIN USER-00# & #ARMIN USER-21#ARMIN USER-22#ARMIN USER-23#ARMIN USER-24#ARMIN USER-25#
+24- ADMIN ARMED
+25- ADMIN DISARMED
+26- AUTO ARMED/ SCHEDULED ARMED
+27- AUTO DISARMED/ SCHEDULED DISARMED
+
+FOR- #USER-1#USER-2#USER-3#USER-4#USER-5#USER-6#USER-7#USER-8#USER-9#USER-10#USER-11#USER-12#USER-13#USER-14#USER-15#USER-16#USER-17#USER-18#
+00- USER LOGGED OUT
+01- USER LOGGED IN
+
+FOR - #ENGINEERING USER-99
+10 - ENGINEER CODE LOGGED OUT
+11 - ENGINEER CODE LOGGED IN
+
+"To Get Panel  Firmware Version, Current Panel ID and MAC Address: 
+SSTARTSBONEFWACCMACENDD"
+"Response From Panel :
+STARTFWV030ACC123456MAC128031018138056048END"
+
+"To Get Current R/L Values & Panel ID:
+SSTARTACC123456MAC128031018138056048RRLAENDD"
+"Response From Panel :
+RLAR000001&L000000&123456&END"
+
+To Update New R/L Value & Panel ID:
+"Response From Panel :
+WRLA OK"
+
+"To Soft Reset The Panel :
+SSTARTACC123456MAC128031018138056048WRLAR000001&L000000&123456&ENDD"
+"Response From Panel :
+Reset OKResend the Packet"
+
+Zone Status Commands As Below
+
+Zone-1 To Zone 20 Status:
+
+"Commands: A0F2004A""SIA-DCS""0001R000001L000000#99999[#999999|DCS008|R|000]_15:12:43,01-23-2020"
+
+"Response: L[005D""SIA-DCS""0024R000001L000000#99999[#99999|DCS008|000|0000A00890880AAAAAAA]_15:11:20,01-23-2020"
+
+
+Zone-21 To Zone 40 Status:
+
+"Commands : 6C22004A""SIA-DCS""0001R000001L000000#99999[#99999|DCS008|R|001]_15:12:43,01-23-2020"
+
+"Response: .P005D""SIA-DCS""0025R000001L000000#99999[#99999|DCS008|001|AA00000000AAAAAAAAAA]_15:11:21,01-23-2020"
+
+
+Zone-41 To Zone 47 Status:
+
+"Commands : FD9E004A""SIA-DCS""0001R000001L000000#99999[#99999|DCS008|R|002]_15:13:03,01-23-2020"
+
+"Response: ..0050""SIA-DCS""0030R000001L000000#99999[#99999|DCS008|002|AAAAAA1]_15:11:42,01-23-2020"
+
+
+A= DISABLE
+
+1= ALERT / ALARM STATE
+
+2= NOT CONNECTED (FOR ANALOG AND FAIL SAFE ZONE ONLY)
+
+3= ZONE SHORT (FOR ANALOG AND FAIL SAFE ZONE ONLY)
+
+0= NORMAL /  NORMAL STATE
+
+8= ZONE CLOS IN PANEL DIARM CONDITION
+
+9= ZONE OPEN IN PANEL DIARM CONDITION
+
+
+
+--- Sheet: Control Commands ---
+,
+Command for Zone Bypass and Un-bypass individually for GX4816 panel,
+,
+1) Zone Bypass Command:,
+"""SIA-DCS""0001R000001L000001#999999 [#999999|DCS033|W|001|0]_17:11:02,03-04-2020",001 - Zone Number
+,0 - zone DISABLE/BYPASS
+"Command Response:""ACK""0028R000001L000001#999999[]_11:24:25,02-16-2020",
+,
+,
+,
+2) Zone Un-Bypass Command:,
+"""SIA-DCS""0001R000001L000001#999999 [#999999|DCS033|W|001|1]_17:11:02,03-04-2020",001 - Zone Number
+,1 - zone DISABLE/BYPASS
+Command Response:,
+"""ACK""0034R000001L000001#999999[]_11:35:48,02-16-2020",
+,
+,
+Hooter Control Commands As Below,
+,
+"Command To External Hooter-1 ON :=  ""SIA-DCS""0001R000001L000000#999999[#999999|DCS007|W|001|3]_12:59:30,11-27-2019",001 - Relay Output-1
+"Response : ""ACK""0037R000001L000000#99999[]_13:00:17,11-27-2019",3- Sounder-1 ON
+,
+"Command To External Hooter-1 OFF := ""SIA-DCS""0001R000001L000000#99999[#99999|DCS007|W|001|2]_13:00:51,11-27-2019",001 - Relay Output-1
+"Response : ""ACK""0050R000001L000000#99999[]_13:02:24,11-27-2019",2- Sounder-1 OFF
+,
+"Command To Internal Hooter-2 ON :=  ""SIA-DCS""0001R000001L000000#99999[#99999|DCS007|W|002|3]_13:02:28,11-27-2019",002 - Relay Output-2
+"Response : ""ACK""0054R000001L000000#99999[]_13:03:15,11-27-2019",3- Sounder-2 ON
+,
+"Command To Internal Hooter-2 OFF := ""SIA-DCS""0001R000001L000000#99999[#99999|DCS007|W|002|2]_13:04:03,11-27-2019",002 - Relay Output-2
+"Response : ""ACK""0065R000001L000000#99999[]_13:04:50,11-27-2019",2- Sounder-1 OFF
+,
+,
+Hooter Status Commands As Below,
+,
+"Commands : 11C6004A""SIA-DCS""0001R000001L000000#99999[#99999|DCS009|R|000]_16:57:25,01-28-2020",
+,
+"Response: ..0078""SIA-DCS""0013R000001L000000#99999[#99999|DCS009|000|030#130#231#331#531#431#631#700#700#700#700#700]_16:56:10,01-28-2020",
+,
+"Explanation: ..0078""SIA-DCS""0013R000001L000000#99999[#99999|DCS009|000|Hooter-1# Hooter-2# Relay-3# Relay-4# Relay-5# Relay-6# Relay-7# Relay-8# Relay-9# Relay-10# Relay-11# Relay-12]_16:56:10,01-28-2020",
+,
+030 = Relay No Relay Mode Relay Status,
+,
+Relay No:,
+"Starting From 0 (0=1, 1=2, 2=3, 3=4....)",
+,
+Relay Mode:,
+0= Manual Mode,
+1= Scheduled Mode,
+2= Sensor Control Mode,
+3 = Auto Mode,
+,
+Relay Status:,
+1= ON,
+0= OFF,
+,
+Panel Reset/Boot Command:,
+"Command To Soft RESET Panel:=  ""SIA-DCS""0001R000001L000000#99999[#99999|DCS015|W|0]_12:50:43,11-27-2019",
+"Response : ""ACK""0042R000001L000000#99999[]_12:51:30,11-27-2019",
+,
+Command To Fire RESET,
+"Command : ""SIA-DCS""0001R000001L000000#99999[#99999|DCS007|W|006|3]_13:07:07,11-27-2019",
+"Response : ""ACK""0074R000001L000000#99999[]_13:07:54,11-27-2019",
+,
+Command To Open EML : (Auto Lock After 10 Sec),
+"Command :  0447004C""SIA-DCS""0001R000001L000000#99999[#99999|DCS007|W|003|3]_13:22:48,08-16-2023",
+"Response : I50033""ACK""0043R000001L000000#99999[]_13:22:46,08-16-2023",
+,
+Command To DVR RESET: (Auto Restore After 10 Sec),
+"Command : 8599004C""SIA-DCS""0001R000001L000000#99999[#99999|DCS007|W|007|3]_13:29:06,08-16-2023",
+"Response : pg0033""ACK""0078R000001L000000#99999[]_13:29:05,08-16-2023",
+,
+Command To ROUTER RESET : (Auto Restore After 10 Sec),
+"Command : 3182004C""SIA-DCS""0001R000001L000000#99999[#99999|DCS007|W|004|3]_13:29:42,08-16-2023",
+"Response : .@0033""ACK""0082R000001L000000#99999[]_13:29:41,08-16-2023",
+,
+Command To GSM TWO WAY RESET : (Auto Restore After 10 Sec),
+"Command : F4DE004C""SIA-DCS""0001R000001L000000#99999[#99999|DCS007|W|005|3]_13:30:22,08-16-2023",
+"Response : .J0033""ACK""0086R000001L000000#99999[]_13:30:21,08-16-2023",
+,
+Command To Fire RESET : (Auto Restore After 10 Sec),
+"Command : ""SIA-DCS""0001R000001L000000#99999[#99999|DCS007|W|006|3]_13:07:07,11-27-2019",
+"Response : ""ACK""0074R000001L000000#99999[]_13:07:54,11-27-2019",
+,
+PANEL ARM/DISARM Commands,
+Panel ARM Command:,
+" <LF>8865004C""SIA-DCS""0001R000001L000000##99999[##99999|DCS016|W|000|4]_13:34:42,02-18-2020<CR>",
+"Response: ;=0033""ACK""0023R000001L000000#99999[]_13:34:41,02-18-2020",
+,
+Panel DISARM Command: ,
+"<LF>DA1C004C""SIA-DCS""0001R000001L000000##99999[##99999|DCS016|W|000|5]_13:33:39,02-18-2020<CR>",
+"Response: ..0033""ACK""0019R000001L000000#99999[]_13:33:38,02-18-2020",
+,
+,
+"Relay Schedule Change Command: (For Only Relay No: 008,009,010,011,012)",
+,
+"<LF>""SIA-DCS""0001R000001L000000##99999[##99999|DCS005|W|011|AC-1##1##511##NRO##NRC##1##7##1##000##000##000##000##000##0001##3##001001000400050008000900]_13:34:20,03-02-2023<CR>",
+,
+Relay Number Value Input Section,
+"011 – Relay Number (For Only Relay No: 008,009,010,011,012)",
+,
+AC-1 = Relay Name(Editable),
+,
+1 – Relay Enable/Disable Input Section,
+1 = Enabled,
+0 = Disabled,
+,
+511 - SIA EVENT NUMBER For Relay Number-11 (Check Default SIA code list for other relay SIA Event Numbers),
+NRO- SIA EVENT CODE FOR Relay Switched ON ,
+NRC- SIA EVENT CODE FOR Relay Switched OFF,
+,
+Time value Input Section:,
+0010 -  HHMM Start Time in 24hrs format,
+0100 – HHMM Stop Time in 24hrs format,
+0400 – HHMM Start Time in 24hrs format,
+0500 – HHMM Stop Time in 24hrs format,
+0800 – HHMM Start Time In 24hrs format,
+0900 – HHMM Stop Time in 24hrs format,
+,
+Command Response:,
+"g.0033""ACK""0046R000001L000000#99999[]_13:34:20,03-02-2023",
+,
+
+--- Sheet: EXTRA COMMANDS ---
+,,,,,
+Securico GX4816 IP Panel Extra Commands,,,,,
+,,,,,
+,,,,,
+1) Command To GET/Read Present Zone Settings:,,,,,
+"<LF>3146004C""SIA-DCS""0001R000001L000000#999999[#999999|DCS004|R|001]_13:29:09,06-26-2021<CR>",,,,,
+,,,,,
+"<LF>092A0046""SIA-DCS""0001R000001L000000#065432[#065432|DCS004|R|XXX]_10:59:10,10-02-2013<CR>",,,,,
+<LF>,Line Feed  (0x0A),,,,
+5A020034,Checksum,,,,
+“SIA-DCS”,Protocol Id,,,,
+0001,Sequence Number,4 digit ASCII from 0000 to 9999 ,,,
+R000001,Receiver Number,6 digit ASCII,,,
+L000000,Line Number,6 digit ASCII (000000 to 999999),,,
+#999999,Account Number,6 digit ASCII (00000 to 99999),,,
+[,Start,,,,
+#999999,Account Number,,,,
+|,Splitting Character,,,,
+DCS,Packet Name,,,,
+004,Packet Id,,,,
+|,Splitting Character,,,,
+R,Read packet,,,,
+|,Splitting Character,,,,
+XXX,Zone Number,"001,002 ….. etc",,,
+],End,,,,
+_15:59:20,Time,,,,
+05-27-2016,Date,,,,
+<CR>,Carrier Returns,,,,
+,,,,,
+Response:,,,,,
+"<LF>5S00AF""SIA-DCS""0246R000001L000000#999999[#999999|DCS004|001|ZONE 1#7#4#0#001#NBA#NBR#NDO#NHA#NHR#NSO#NSC#030#030#1#1#0#000#0000#00002359#00002359#0#0100#NBS#NBD]_13:29:15,06-26-2021<CR>",,,,,
+,,,,,
+<LF>,Line Feed  (0x0A),,,,
+5A020034,Checksum,,,,
+“SIA-DCS”,Protocol Id,,,,
+0001,Sequence Number,4 digit ASCII from 0000 to 9999,,,
+R000001,Receiver Number,6 digit ASCII,,,
+L000000,Line Number,6 digit ASCII (000000 to 999999),,,
+#999999,Account Number,6 digit ASCII (00000 to 99999),,,
+[,Start,,,,
+#999999,Account Number,,,,
+|,Splitting Character,,,,
+DCS,Packet Name,,,,
+004,Packet Id,,,,
+|,Splitting Character,,,,
+001,Packet number,3 digits,,,
+|,Splitting Character,,,,
+ZONE 1,Zone Name,1-15 character only,,,
+#,Splitting character,,,,
+X,Zone Enable/disable,0 – Disable / 7- Enable,,,
+#,Splitting character,,,,
+4,Zone Type,Zone Type Selection - PIR,,,
+#,Splitting Character,,,,
+X,ARM/DISARM INPUT,0 Disable/1 Enable,,,
+#,Splitting Character,,,,
+XXX(001),SIA Zone Code,000-999(3 digits),,,
+#,Splitting Character,,,,
+XXX(NBA),SIA Alert Event Code,Alert code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NBR),SIA Alert Event Code,Normal code (3 Character),,,
+#,Splitting Character,,,,
+XXX(NDO),SIA Alert Event Code,Long open code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NHA),SIA Port  Hooter ack  Event Code,Port Hooter Ack code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NPA),SIA Port  Hooter Reset Event Code,Port Hooter Reset code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NSO),SIA Alert Event Code for out of schedule,Alert code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NSC),SIA Alert Event Code for out of schedule,Normal code (3 Character),,,
+#,Splitting Character,,,,
+XXX 30,Entry Delay Time,3 digits (0-255s),,,
+#,Splitting Character,,,,
+XXX 30,Exit Delay Time,3 digits(0-255s),,,
+#,Splitting Character,,,,
+1,Required Alarm for out of schedule,0 - Disable,,,
+,,1 - Enable,,,
+#,Splitting Character,,,,
+1,Required History,0 Disable,,,
+,,1 Enable,,,
+#,Splitting Character,,,,
+X,Required Hooter,"X =
+0 -Disable
+1- Hooter 1 select
+2- Hooter 2 Select
+3- both Hooter 1 and Hoter 2 select",,,
+#,Splitting Character,,,,
+XXX(000),Hooter Delay Time,000-999 seconds,,,
+#,Splitting Character,,,,
+XXXX(0010),Long open Delay Time,"0000-1440 minutes
+4 digits only",,,
+#,Splitting Character,,,,
+HHMMHHMM(00002359),Alert Time Window,Alert start and End time in hours and minutes,,,
+#,Splitting Character,,,,
+HHMMHHMM(00002359),Hooter Time Window,Alert start and End time in hours and minutes,,,
+#,Splitting Character,,,,
+0,"Sensor Type
+(2,3,4,5 options do not give the this option in selected list only show this type whille reading)",0 - NC(Normally Close),,,
+,,1 - NO(Normally Open),,,
+,,"2 – FAS Type (not changeable)
+(This sensor type only applicable for zone 13 and zone 14)",,,
+,,"3 – FAIL SAFE Type (not changeable)
+(This sensor type only applicable for zone 15 to zone 18) Note fail safe type is removed consider it as a digital zone",,,
+,,"4 – Voltage Type (not changeable)
+(This sensor type only applicable for zone 19 and zone 20)",,,
+,,"5 – RTD Type (not changeable)
+(This sensor type only applicable for zone 21 and zone 22)",,,
+#,Splitting Character,,,,
+XXXX(0100),Debounce Time 1,"000-9999 seconds
+4 digits",,,
+#,Splitting Character,,,,
+XXX(NBS),SIA Short Event Code,Alert code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NBD),SIA Disconnect Event Code,Alert code(3 Character),,,
+,,,,,
+If we select sensor type as a Voltage type  then only below  confguration required,,,,,
+#,Splitting Character,,,,
+zone 19,,,,,
+XXXYYY(036024),Temperature Max & Min value,XXX->Temperature Minimum value YYY->Temperature Maximum value,,,
+#,Splitting Character,,,,
+XX,Hysteresis  temperature,2 digit,,,
+#,Splitting Character,,,,
+zone 20,,,,,
+XXXYYY(300080),Lux Max & Min value,XXX->Lux  Minimum value YYY->Lux  Maximum value,,,
+XXX,Hysteresis LUX Value,3 digit,,,
+],End,,,,
+_15:59:20,Time,,,,
+05-27-2016,Date,,,,
+<CR>,Carrier Returns,,,,
+,,,,,
+,,,,,
+,,,,,
+2) Command To SET New Zone Settings:,,,,,
+"<LF>B91F00B1""SIA-DCS""0001R000001L000000#999999[#999999|DCS004|W|001|ZONE 1#7#4#0#001#NBA#NBR#NDO#NHA#NHR#NSO#NSC#030#030#1#1#0#000#0000#00002359#00002359#0#0100#NBS#NBD]_13:31:18,06-26-2021<CR>",,,,,
+,,,,,
+Same as Zone read response command,,,,,
+,,,,,
+Response:,,,,,
+">.0034""ACK""0251R000001L000000#999999[]_13:31:24,06-26-2021",,,,,
+,,,,,
+,,,,,
+3) Command To GET/Read  PIR Zone Current Settings:,,,,,
+"<LF>B856004C""SIA-DCS""0001R000001L000000#999999[#999999|DCS004|R|001]_13:34:00,06-26-2021<CR>",,,,,
+,,,,,
+Response:,,,,,
+"<LF>700C8""SIA-DCS""0258R000001L000000#999999[#999999|DCS004|001|ZONE 1",,,,,
+"#7#2#0#001#NBA#NBR#NDO#NHA#NHR#NSO#NSC#030#030#1#1#0#000#0000#00002359#00002359#0#0100#NBS#NBD#0000#0000#0#0#0#0#0000#0]_13:34:06,06-26-2021<CR>",,,,,
+,,,,,
+<LF>,Line Feed  (0x0A),,,,
+5A020034,Checksum,,,,
+“SIA-DCS”,Protocol Id,,,,
+0001,Sequence Number,4 digit ASCII from 0000 to 9999,,,
+R000001,Receiver Number,6 digit ASCII,,,
+L000000,Line Number,6 digit ASCII (000000 to 999999),,,
+#999999,Account Number,6 digit ASCII (00000 to 99999),,,
+[,Start,,,,
+#999999,Account Number,,,,
+|,Splitting Character,,,,
+DCS,Packet Name,,,,
+004,Packet Id,,,,
+|,Splitting Character,,,,
+001,Packet number,3 digits,,,
+|,Splitting Character,,,,
+Panic Switch,Zone Name,1-15 character only,,,
+#,Splitting character,,,,
+X,Zone Enable/disable,0 – Disable / 7- Enable,,,
+#,Splitting character,,,,
+,Zone Type,1 - 24/7,,,
+,,2 - PIR,,,
+,,3 - FIRE,,,
+,,4 - Schedule,,,
+,,5 - ARM DISARM,,,
+,,6 – Analog (do not give the this option in selected list only show this type whille reading),,,
+#,Splitting Character,,,,
+X,ARM/DISARM INPUT,0 Disable/1 Enable,,,
+#,Splitting Character,,,,
+XXX(001),SIA Zone Code,000-999(3 digits),,,
+#,Splitting Character,,,,
+XXX(NBA),SIA Alert Event Code,Alert code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NBR),SIA Alert Event Code,Normal code (3 Character),,,
+#,Splitting Character,,,,
+XXX(NDO),SIA Alert Event Code,Long open code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NHA),SIA Port  Hooter ack  Event Code,Port Hooter Ack code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NPA),SIA Port  Hooter Reset Event Code,Port Hooter Reset code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NSO),SIA Alert Event Code for out of schedule,Alert code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NSC),SIA Alert Event Code for out of schedule,Normal code (3 Character),,,
+#,Splitting Character,,,,
+XXX 30,Entry Delay Time,3 digits (0-255s),,,
+#,Splitting Character,,,,
+XXX 30,Exit Delay Time,3 digits(0-255s),,,
+#,Splitting Character,,,,
+1,Required Alarm for out of schedule,0 - Disable,,,
+,,1 - Enable,,,
+#,Splitting Character,,,,
+1,Required History,0 Disable,,,
+,,1 Enable,,,
+#,Splitting Character,,,,
+X(BOTH),Required Hooter,"X -0 Disable
+1 Hooter 1 select
+2 Hooter 2 Select
+3 both Hooter 1 and Hoter 2 select",,,
+#,Splitting Character,,,,
+XXX(000),Hooter Delay Time,000-999 seconds,,,
+#,Splitting Character,,,,
+XXXX(0010),Long open Delay Time,"0000-1440 minutes
+4 digits only",,,
+#,Splitting Character,,,,
+HHMMHHMM(000023 59),Alert Time Window,Alert start and End time in hours and minutes,,,
+#,Splitting Character,,,,
+HHMMHHMM(000023 59),Hooter Time Window,Alert start and End time in hours and minutes,,,
+#,Splitting Character,,,,
+0,"Sensor Type
+(2,3,4,5 options do not give the this option in selected list only show this type whille reading)",0 - NC(Normally Close),,,
+,,1 - NO(Normally Open),,,
+,,"2 – FAS Type (not changeable)
+(This sensor type only applicable for zone 13 and zone 14)",,,
+,,"3 – FAIL SAFE Type (not changeable)
+(This sensor type only applicable for zone 15 to zone 18) Note fail safe type is removed consider it as a digital zone",,,
+,,"4 – Voltage Type (not changeable)
+(This sensor type only applicable for zone 19 and zone 20)",,,
+,,"5 – RTD Type (not changeable)
+(This sensor type only applicable for zone 21 and zone 22)",,,
+#,Splitting Character,,,,
+XXXX(0100),Debounce Time 1,"000-9999 seconds
+4 digits",,,
+#,Splitting Character,,,,
+XXX(NBS),SIA Short Event Code,Alert code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NBD),SIA Disconnect Event Code,Alert code(3 Character),,,
+,,,,,
+If we select sensor type as a PIR then only below confguration required,,,,,
+XXXX(9999),Debounce Time 2,"000-9999 seconds
+4 digits",,,
+#,Splitting Character,,,,
+XXXX(9999),Debounce Time 3,"000-9999 seconds
+4 digits",,,
+#,Splitting Character,,,,
+X,Debounce time 2 enable,"1 digit
+0->Disable 1->Enable",,,
+#,Splitting Character,,,,
+X,Debounce time 2 enable,"1 digit
+0->Disable 1->Enable",,,
+#,Splitting Character,,,,
+X,PIR3 Delay enable,1 digit,,,
+,,0->Disable 1->Enable,,,
+#,Splitting Character,,,,
+X,PIR Inter alarm delay enable,"1 digit
+0->Disable 1->Enable",,,
+#,Splitting Character,,,,
+X,PIR Inter alarm delay time,"000-9999 seconds
+4 digits",,,
+#,Splitting Character,,,,
+X,PIR WDT delay enable,"1 digit
+0->Disable 1->Enable",,,
+,,,,,
+If we select sensor type as a Voltage type  then only below  confguration required,,,,,
+#,Splitting Character,,,,
+zone 19,,,,,
+XXXYYY(036024),Temperature Max & Min value,XXX->Temperature Minimum value YYY->Temperature Maximum value,,,
+#,Splitting Character,,,,
+XX,Hysteresis  temperature,2 digit,,,
+#,Splitting Character,,,,
+zone 20,,,,,
+XXXYYY(300080),Lux Max & Min value,XXX->Lux  Minimum value YYY->Lux  Maximum value,,,
+XXX,Hysteresis LUX Value,3 digit,,,
+],End,,,,
+_15:59:20,Time,,,,
+05-27-2016,Date,,,,
+<CR>,Carrier Returns,,,,
+,,,,,
+4) Command To SET New PIR Zone Settings:,,,,,
+"<LF>C93300CA""SIA-DCS""0001R000001L000000#999999[#999999|DCS004|W|001|ZONE 1#7#2#0#001#NBA#NBR#NDO#NHA#NHR#NSO#NSC#030#030#1#1#0#000#0000#00002359#00002359#0#0100#NBS#NBD#0000#0000#0#0#0#0#0000#0]_13:36:54,06-26-2021<CR>",,,,,
+,,,,,
+Same as PIR Read response,,,,,
+,,,,,
+Response:,,,,,
+"uN0034""ACK""0266R000001L000000#999999[]_13:37:00,06-26-2021",,,,,
+,,,,,
+,,,,,
+5) Command To GET/Read  User-wise Current Settings:,,,,,
+"<LF>018A004C""SIA-DCS""0001R000001L000000#999999[#999999|DCS006|R|001]_13:43:50,06-26-2021<CR>",,,,,
+,,,,,
+"ARMING DISARMING SETTINGS
+Note: user 0 is admin is only arming type ,
+1-18 users,99engineer only for password confguration.
+Read Request:
+",,,,,
+"Note: user 0 is admin is only arming type ,
+1-18 users,99engineer only for password confguration.
+Read Request:",,,,Document,
+"<LF>092A0046""SIA-DCS""0001R000001L000000#065432[#065432|DCS006|R|XXX]_10:59:10,10-02-2013<CR>",,,,,
+,,,,,
+<LF>,Line Feed  (0x0A),,,,
+5A020034,Checksum,,,,
+“SIA-DCS”,Protocol Id,,,,
+0001,Sequence Number,4 digit ASCII from 0000 to 9999 ,,,
+R000001,Receiver Number,6 digit ASCII,,,
+L000000,Line Number,6 digit ASCII (000000 to 999999),,,
+#999999,Account Number,6 digit ASCII (00000 to 99999),,,
+[,Start,,,,
+#999999,Account Number,,,,
+|,Splitting Character,,,,
+DCS,Packet Name,,,,
+005,Packet Id,,,,
+|,Splitting Character,,,,
+R,Read packet,,,,
+|,Splitting Character,,,,
+XXX,User number Number,,,,
+],End,,,,
+_15:59:20,Time,,,,
+05-27-2016,Date,,,,
+<CR>,Carrier Returns,,,,
+,,,,,
+,,,,,
+Response:,,,,,
+"<LF>00B4""SIA-DCS""0293R000001L000000#999999[#999999|DCS006|001|USER 1",,,,,
+"#1#1#0#401#1234#NCC#NWC#00002359#0000000000000000000000000#0030#0005#0005#NOA#NLD#NDD#NDE#NCL#0#NED]_13:46:31,06-26-2021<CR>",,,,,
+,,,,,
+<LF>,Line Feed  (0x0A),,,,
+5A020034,Checksum,,,,
+“SIA-DCS”,Protocol Id,,,,
+0001,Sequence Number,4 digit ASCII from 0000 to 9999 ,,,
+R000001,Receiver Number,6 digit ASCII,,,
+L000000,Line Number,6 digit ASCII (000000 to 999999),,,
+#999999,Account Number,6 digit ASCII (00000 to 99999),,,
+[,Start,,,,
+#999999,Account Number,,,,
+|,Splitting Character,,,,
+DCS,Packet Name,,,,
+006,Packet Id,,,,
+|,Splitting character,,,,
+001,Packet number,3 digits,,,
+|,Splitting Character,,,,
+LBM,User Name,1-15 character only,,,
+#,Splitting character,,,,
+1,Enable/disable,0 -  Disable,,,
+,,1 - Enable,,,
+#,Splitting Character,,,,
+1,Required History,0 Disable,,,
+,,1 Enable,,,
+#,Splitting Character,,,,
+X,category,0 – Direct Authentication,,,
+,,1 - CMS Authentication,,,
+,,2- ARMING,,,
+#,Splitting Character,,,,
+XXX(001),SIA Zone Code,000-999(3 digits),,,
+#,Splitting Character,,,,
+"XXXX(0000
+)",Arm/Disarm/Log in password,,,,
+#,Splitting Character,,,,
+XXX(NRO),Password Change Event code,Event code (3 Character),,,
+#,Splitting Character,,,,
+XXX(NRO),Password Wrong Event code,Event code (3 Character),,,
+#,Splitting Character,,,,
+HHMMHH MM(0000 2359),Schedule time,,,,
+#,Splitting Character,,,,
+XXXXXX XXXXXX XXXXXX XXXXXX X,Zone selectio,X(0 to F)upto 100 zone selection (8421 code conversion method),,,
+If we select category as a ARMING then only below configuration required,,,,,
+XXX(NRC),System arm,Alert code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NRO),System disarm,Normal code (3 Character),,,
+#,Splitting Character,,,,
+XXX(NRO),Disarming time extend,Event code (3 Character),,,
+#,Splitting Character,,,,
+XXX(060),Disarm extend time delay,3 digit only (minutes),,,
+#,Splitting Character,,,,
+1,"RE ARM
+Enable/disable",0 - Disable,,,
+,,1 - Enable,,,
+#,Splitting Character,,,,
+If we select category as a Function then only below configuration required,,,,,
+HHMM(0 010),Basic time duration,hours and minutes (4 digits),,,
+#,Splitting Character,,,,
+HHMM(0 005),Time delay 1,hours and minutes (4 digits),,,
+#,Splitting Character,,,,
+HHMM(0 005),Time delay 2,hours and minutes (4 digits),,,
+#,Splitting Character,,,,
+XXX(NTS),Function Activate,(3 Character),,,
+#,Splitting Character,,,,
+XXX(NTS),Manual  Login Request,(3 Character),,,
+#,Splitting Character,,,,
+XXX(NTO),Time delay 1 started,(3 Character),,,
+#,Splitting Character,,,,
+XXX(NTS),Time delay 2 started,(3 Character),,,
+#,Splitting Character,,,,
+XXX(NAD),Funbction deactivate,(3 Character),,,
+#,Splitting Character,,,,
+1,EML_Lock Open,0 - Disable,,,
+,,1 - Enable,,,
+#,Splitting Character,,,,
+XXX(NDD),Extended disarm,(3 Character),,,
+],End,,,,
+_15:59:20,Time,,,,
+"05-27-
+2016",Date,,,,
+<CR>,Carrier Returns,,,,
+,,,,,
+,,,,,
+,,,,,
+6) Command To SET User-wise New Settings:,,,,,
+"<LF>0BC600B6""SIA-DCS""0001R000001L000000#999999[#999999|DCS006|W|001|USER 1#1#1#0#401#1234#NCC#NWC#00002359#0000000000000000000000000#0030#0005#0005#NOA#NLD#NDD#NDE#NCL#0#NED]_13:48:04,06-26-2021<CR>",,,,,
+,,,,,
+<LF>,Line Feed  (0x0A),,,,
+5A020034,Checksum,,,,
+“SIA-DCS”,Protocol Id,,,,
+0001,Sequence Number,4 digit ASCII from 0000 to 9999 ,,,
+R000001,Receiver Number,6 digit ASCII,,,
+L000000,Line Number,6 digit ASCII (000000 to 999999),,,
+#999999,Account Number,6 digit ASCII (00000 to 99999),,,
+[,Start,,,,
+#999999,Account Number,,,,
+|,Splitting Character,,,,
+DCS,Packet Name,,,,
+006,Packet Id,,,,
+|,Splitting character,,,,
+W,Write packet,,,,
+|,Splitting Character,,,,
+001,Packet number,3 digits,,,
+|,Splitting Character,,,,
+LBM,User Name,1-15 character only,,,
+#,Splitting character,,,,
+1,Enable/disable,0 -  Disable,,,
+,,1 - Enable,,,
+#,Splitting Character,,,,
+1,Required History,0 Disable,,,
+,,1 Enable,,,
+#,Splitting Character,,,,
+X,category,0 – Direct Authentication,,,
+,,1 - CMS Authentication,,,
+,,2- ARMING,,,
+#,Splitting Character,,,,
+XXX(001),SIA Zone Code,000-999(3 digits),,,
+#,Splitting Character,,,,
+"XXXX(0000
+)",Arm/Disarm/Log in password,,,,
+#,Splitting Character,,,,
+XXX(NRO),Password Change Event code,Event code (3 Character),,,
+#,Splitting Character,,,,
+XXX(NRO),Password Wrong Event code,Event code (3 Character),,,
+#,Splitting Character,,,,
+HHMMHH MM(0000 2359),Schedule time,,,,
+#,Splitting Character,,,,
+XXXXXX XXXXXX XXXXXX XXXXXX X,Zone selectio,X(0 to F)upto 100 zone selection (8421 code conversion method),,,
+If we select category as a ARMING then only below configuration required,,,,,
+XXX(NRC),System arm,Alert code(3 Character),,,
+#,Splitting Character,,,,
+XXX(NRO),System disarm,Normal code (3 Character),,,
+#,Splitting Character,,,,
+XXX(NRO),Disarming time extend,Event code (3 Character),,,
+#,Splitting Character,,,,
+XXX(060),Disarm extend time delay,3 digit only (minutes),,,
+#,Splitting Character,,,,
+1,"RE ARM
+Enable/disable",0 - Disable,,,
+,,1 - Enable,,,
+#,Splitting Character,,,,
+If we select category as a Function then only below configuration required,,,,,
+HHMM(0 010),Basic time duration,hours and minutes (4 digits),,,
+#,Splitting Character,,,,
+HHMM(0 005),Time delay 1,hours and minutes (4 digits),,,
+#,Splitting Character,,,,
+HHMM(0 005),Time delay 2,hours and minutes (4 digits),,,
+#,Splitting Character,,,,
+XXX(NTS),Function Activate,(3 Character),,,
+#,Splitting Character,,,,
+XXX(NTS),Manual  Login Request,(3 Character),,,
+#,Splitting Character,,,,
+XXX(NTO),Time delay 1 started,(3 Character),,,
+#,Splitting Character,,,,
+XXX(NTS),Time delay 2 started,(3 Character),,,
+#,Splitting Character,,,,
+XXX(NAD),Funbction deactivate,(3 Character),,,
+#,Splitting Character,,,,
+1,EML_Lock Open,0 - Disable,,,
+,,1 - Enable,,,
+#,Splitting Character,,,,
+XXX(NDD),Extended disarm,(3 Character),,,
+],End,,,,
+_15:59:20,Time,,,,
+"05-27-
+2016",Date,,,,
+<CR>,Carrier Returns,,,,
+,,,,,
+Response:,,,,,
+"_.0034""ACK""0298R000001L000000#999999[]_13:48:10,06-26-2021",,,,,
+,,,,,
+,,,,,
+,,,,,
+

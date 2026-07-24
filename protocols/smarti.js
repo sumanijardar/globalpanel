@@ -103,22 +103,22 @@ function buildSIACommand(commandType, account, zone = "000", receiver = "R000001
   const len = calculateLength(dataWithTs);
   const result = `\n${crc}${len}${dataWithTs}\r`;
 
-  console.log(`\n🛠️  [CONSTRUCTED SMAERTI SIA COMMAND] Type: ${commandType}, Account: ${paddedAccount}`);
+  console.log(`\n🛠️  [CONSTRUCTED SMARTI SIA COMMAND] Type: ${commandType}, Account: ${paddedAccount}`);
   return result;
 }
 
 function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
   if (socket.destroyed) {
-    console.log("❌ SMAERTI Connection lost, cannot send command.");
+    console.log("❌ SMARTI Connection lost, cannot send command.");
     return false;
   }
   const cmd = buildSIACommand(commandType, accountNo, zone);
   if (!cmd) {
-    console.log(`⚠️ SMAERTI Unknown Command: ${commandType}`);
+    console.log(`⚠️ SMARTI Unknown Command: ${commandType}`);
     return false;
   }
   socket.write(cmd);
-  console.log(`\n📤 [SMAERTI] Command Sent [${commandType}]:`);
+  console.log(`\n📤 [SMARTI] Command Sent [${commandType}]:`);
   console.log(`   Raw Format: ${cmd.replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r')}`);
   return true;
 }
@@ -325,7 +325,7 @@ function startServer() {
   });
 
   tcpServer.listen(TCP_PORT, () => {
-    console.log(`🚀 SMAERTI TCP Server listening for devices on port ${TCP_PORT}`);
+    console.log(`🚀 SMARTI TCP Server listening for devices on port ${TCP_PORT}`);
   });
 }
 

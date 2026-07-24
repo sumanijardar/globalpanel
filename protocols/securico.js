@@ -65,8 +65,13 @@ function buildACK(header) {
 const COMMAND_MAP = {
   'ARM': 'DCS016|W|000|4',
   'DISARM': 'DCS016|W|000|5',
-  'SIREN_ON': 'DCS007|W|001|3',
-  'SIREN_OFF': 'DCS007|W|001|2',
+  'SIREN_ON': 'DCS007|W|{ZONE}|3',
+  'SIREN_OFF': 'DCS007|W|{ZONE}|2',
+  'EML_OPEN': 'DCS007|W|003|3',
+  'DVR_RESET': 'DCS007|W|007|3',
+  'ROUTER_RESET': 'DCS007|W|004|3',
+  'GSM_RESET': 'DCS007|W|005|3',
+  'FIRE_RESET': 'DCS007|W|006|3',
   'RESET': 'DCS015|W|0',
   'BYPASS': 'DCS033|W|{ZONE}|0',
   'UNBYPASS': 'DCS033|W|{ZONE}|1'
@@ -77,7 +82,12 @@ function buildSIACommand(commandType, account, zone = "000", receiver = "R000001
   if (!commandPayload) return null;
 
   if (commandPayload.includes('{ZONE}')) {
-    commandPayload = commandPayload.replace('{ZONE}', zone);
+    let finalZone = String(zone).padStart(3, '0');
+    // Default to Hooter-2 (002) if zone 000 is passed for SIREN commands
+    if (commandType.toUpperCase().startsWith('SIREN') && finalZone === '000') {
+      finalZone = '002';
+    }
+    commandPayload = commandPayload.replace('{ZONE}', finalZone);
   }
 
   const seq = String(outSequence++).padStart(4, '0');
@@ -86,9 +96,16 @@ function buildSIACommand(commandType, account, zone = "000", receiver = "R000001
 
   // Securico panels expect a 6-digit account number (e.g., #040205)
   const paddedAccount = String(account).padStart(6, '0');
-
-  // Securico format: [#ACCOUNT|payload]
-  const dataWithoutTs = `"SIA-DCS"${seq}${receiver}${line}#${paddedAccount}[#${paddedAccount}|${commandPayload}]`;
+  
+  // Excel specifies L000001 and a space before bracket for BYPASS commands
+  if (commandType.toUpperCase().includes('BYPASS')) {
+    line = "L000001";
+    var dataWithoutTs = `"SIA-DCS"${seq}${receiver}${line}#${paddedAccount} [#${paddedAccount}|${commandPayload}]`;
+  } else {
+    // Securico format: [#ACCOUNT|payload]
+    var dataWithoutTs = `"SIA-DCS"${seq}${receiver}${line}#${paddedAccount}[#${paddedAccount}|${commandPayload}]`;
+  }
+  
   const dataWithTs = dataWithoutTs + '_' + ts;
 
   const crc = calculateCRC16(dataWithTs);
@@ -104,6 +121,7 @@ function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
     console.log("❌ SECURICO Connection lost, cannot send command.");
     return false;
   }
+
   const cmd = buildSIACommand(commandType, accountNo, zone);
   if (!cmd) {
     console.log(`⚠️ SECURICO Unknown Command: ${commandType}`);
@@ -223,9 +241,8 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
           const pending = [...queue];
           commandQueue.set(currentAccount, []);
           for (const item of pending) {
-            const cmd = buildSIACommand(item.command, currentAccount, item.zone || '000');
-            if (cmd) {
-              socket.write(cmd);
+            const success = sendCommandToPanel(socket, item.command, currentAccount, item.zone || '000');
+            if (success) {
               commandSentFromQueue = true;
               if (item.resolve) item.resolve({ sent: true, command: item.command, zone: item.zone || '000', sentAt: new Date().toISOString() });
             } else {
@@ -248,7 +265,7 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
 }
 
 function initiatePanelConnection(panelId, ip) {
-  const OUTGOING_PORT = 6550;
+  const OUTGOING_PORT = 5000;
   console.log(`\n⏳ [SECURICO] Attempting OUTGOING connection to Panel #${panelId} at IP: ${ip}:${OUTGOING_PORT}...`);
   const socket = new net.Socket();
 
