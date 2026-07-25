@@ -199,7 +199,7 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
       }
     }
 
-    eventLog.unshift({ ...decoded, raw: message, receivedAt: new Date().toISOString() });
+    eventLog.unshift({ ...decoded, account: decoded.account || currentAccount, raw: message, receivedAt: new Date().toISOString() });
     if (eventLog.length > MAX_LOG) eventLog.pop();
 
     if (!socket.destroyed && currentAccount) {
@@ -329,7 +329,11 @@ function queueCommand(account, command, zone, maxWait = 60000) {
       const success = await sendCommandToPanel(sock, command, account, zone);
       setTimeout(() => {
         const newEvents = eventLog.filter(e => e.account === account && e.receivedAt > timeBefore);
-        resolve({ success, status: "sent_immediately", panelResponse: newEvents, responseCount: newEvents.length });
+        const hasWrongMacId = newEvents.some(e => e.rawResponse && e.rawResponse.toLowerCase().includes("wrong macid"));
+        const finalSuccess = success && !hasWrongMacId;
+        const result = { success: finalSuccess, status: hasWrongMacId ? "failed_wrong_macid" : "sent_immediately", panelResponse: newEvents, responseCount: newEvents.length };
+        if (hasWrongMacId) result.message = "Wrong MAC ID configured for this panel";
+        resolve(result);
       }, 3000);
     } else {
       if (!commandQueue.has(account)) commandQueue.set(account, []);
@@ -341,7 +345,11 @@ function queueCommand(account, command, zone, maxWait = 60000) {
             done = true;
             setTimeout(() => {
               const newEvents = eventLog.filter(e => e.account === account && e.receivedAt > (res.sentAt || timeBefore));
-              resolve({ success: res.sent, status: "sent_from_queue", panelResponse: newEvents, responseCount: newEvents.length });
+              const hasWrongMacId = newEvents.some(e => e.rawResponse && e.rawResponse.toLowerCase().includes("wrong macid"));
+              const finalSuccess = res.sent && !hasWrongMacId;
+              const result = { success: finalSuccess, status: hasWrongMacId ? "failed_wrong_macid" : "sent_from_queue", panelResponse: newEvents, responseCount: newEvents.length };
+              if (hasWrongMacId) result.message = "Wrong MAC ID configured for this panel";
+              resolve(result);
             }, 3000);
           }
         }
