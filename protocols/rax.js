@@ -9,7 +9,7 @@ const decodeSIA = decoders.rax;
 // -------------------------------------------------
 // 📂 RAX CONFIGURATION MANAGER
 // -------------------------------------------------
-const configPath = path.join(__dirname, 'rax_config.json');
+const configPath = path.join(process.cwd(), 'rax_config.json');
 let raxConfig = {};
 
 try {

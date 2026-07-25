@@ -14,3 +14,5 @@ read_xls.js
 read_xls.py
 xls_content.txt
 server_config.json
+*.exe
+*.csv

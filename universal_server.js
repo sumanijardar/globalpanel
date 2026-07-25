@@ -13,7 +13,7 @@ const path = require("path");
 
 // Load server configuration for enabling/disabling protocols
 let serverConfig = { RUN_MAYUR: true, RUN_RASS: true, RUN_SMARTI: true, RUN_RAX: true, RUN_SECURICO: true };
-const configPath = path.join(__dirname, 'server_config.json');
+const configPath = path.join(process.cwd(), 'server_config.json');
 
 try {
   if (fs.existsSync(configPath)) {

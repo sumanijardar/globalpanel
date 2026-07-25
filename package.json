@@ -12,5 +12,17 @@
   "dependencies": {
     "mysql2": "^3.22.5",
     "xlsx": "^0.18.5"
+  },
+  "bin": "universal_server.js",
+  "pkg": {
+    "assets": [
+      "decoders/**/*",
+      "config/**/*",
+      "protocols/**/*",
+      "routes/**/*"
+    ]
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
   }
 }

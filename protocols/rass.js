@@ -9,7 +9,7 @@ const decodeSIA = decoders.rass;
 // -------------------------------------------------
 // 📂 RASS CONFIGURATION MANAGER
 // -------------------------------------------------
-const configPath = path.join(__dirname, 'rass_config.json');
+const configPath = path.join(process.cwd(), 'rass_config.json');
 let rassConfig = {};
 
 try {
