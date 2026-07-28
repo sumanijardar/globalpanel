@@ -84,6 +84,18 @@ function buildRaxCommand(commandType, account, mac, zone = "000") {
     return `STARTACC${account}MAC${mac}RRLAEND`;
   }
 
+  // Read Input Port Settings -> START ... PORTXXEND
+  if (cmd === 'READ_INPUT_PORT') {
+    const portStr = String(zone).padStart(2, '0');
+    return `STARTACC${account}MAC${mac}PORT${portStr}END`;
+  }
+
+  // Write Input Port Settings -> STARTCONFIG ... END
+  if (cmd === 'WRITE_INPUT_PORT') {
+    // We expect 'zone' to contain the full configuration string
+    return `STARTCONFIGACC${account}MAC${mac}${zone}END`;
+  }
+
   return null;
 }
 
@@ -198,6 +210,106 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         }
       }
     }
+
+      if (decoded.code === "RPS_RES" && decoded.zonesList) {
+        try {
+            const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            
+            let panelName = '';
+            try {
+                const [siteRows] = await pool.query("SELECT Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
+                if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
+            } catch (err) { /* ignore */ }
+
+            let columns = ['panelid', 'udate', 'ip'];
+            let placeholders = ['?', '?', '?'];
+            let values = [currentAccount, receivedtime, remoteIp || ''];
+            let setQueryArr = ['udate = ?', 'ip = ?'];
+            let setValues = [receivedtime, remoteIp || ''];
+
+            if (panelName) {
+                columns.push('panelName');
+                placeholders.push('?');
+                values.push(panelName);
+                setQueryArr.push('panelName = ?');
+                setValues.push(panelName);
+            }
+
+            decoded.zonesList.forEach(z => {
+               if(z.zone >= 1 && z.zone <= 60) {
+                  const colName = `zon${z.zone}`;
+                  columns.push(colName);
+                  placeholders.push('?');
+                  values.push(z.status); 
+                  setQueryArr.push(`${colName} = ?`);
+                  setValues.push(z.status);
+               }
+            });
+
+            const [rows] = await pool.query("SELECT id FROM panel_health WHERE panelid = ? LIMIT 1", [currentAccount]);
+            if (rows && rows.length > 0) {
+                const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
+                await pool.query(updateQuery, [...setValues, currentAccount]);
+                console.log(`✅ [RAX] Zone status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
+            } else {
+                const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+                await pool.query(insertQuery, values);
+                console.log(`✅ [RAX] Zone status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
+            }
+        } catch (dbErr) {
+            console.error(`❌ [RAX] DB Error saving zone status to panel_health:`, dbErr.message);
+        }
+      }
+
+      if (decoded.code === "RCS_RES" && decoded.channelList) {
+        try {
+            const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            
+            let panelName = '';
+            try {
+                const [siteRows] = await pool.query("SELECT Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
+                if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
+            } catch (err) { /* ignore */ }
+
+            let columns = ['panelid', 'udate', 'ip'];
+            let placeholders = ['?', '?', '?'];
+            let values = [currentAccount, receivedtime, remoteIp || ''];
+            let setQueryArr = ['udate = ?', 'ip = ?'];
+            let setValues = [receivedtime, remoteIp || ''];
+
+            if (panelName) {
+                columns.push('panelName');
+                placeholders.push('?');
+                values.push(panelName);
+                setQueryArr.push('panelName = ?');
+                setValues.push(panelName);
+            }
+
+            decoded.channelList.forEach(c => {
+               if(c.channel >= 1 && c.channel <= 10) {
+                  const colName = `relay${c.channel}`;
+                  columns.push(colName);
+                  placeholders.push('?');
+                  values.push(c.status); 
+                  setQueryArr.push(`${colName} = ?`);
+                  setValues.push(c.status);
+               }
+            });
+
+            const [rows] = await pool.query("SELECT id FROM panel_health WHERE panelid = ? LIMIT 1", [currentAccount]);
+            if (rows && rows.length > 0) {
+                const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
+                await pool.query(updateQuery, [...setValues, currentAccount]);
+                console.log(`✅ [RAX] Channel status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
+            } else {
+                const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+                await pool.query(insertQuery, values);
+                console.log(`✅ [RAX] Channel status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
+            }
+        } catch (dbErr) {
+            console.error(`❌ [RAX] DB Error saving channel status to panel_health:`, dbErr.message);
+        }
+      }
 
     eventLog.unshift({ ...decoded, account: decoded.account || currentAccount, raw: message, receivedAt: new Date().toISOString() });
     if (eventLog.length > MAX_LOG) eventLog.pop();
