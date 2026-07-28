@@ -171,12 +171,113 @@ function decodeSIA(message) {
     } else if (message.includes("STARTRPS")) {
         result.event = "Read port status response";
         result.code = "RPS_RES";
+        
+        const match = message.match(/STARTRPS(.*?)END/);
+        if (match) {
+            const statuses = match[1];
+            const statusMap = {
+                '0': 'Normal', '1': 'Alert', '2': 'Not connected',
+                '3': 'Shorted', '4': 'Ack', '6': 'Reset',
+                '9': 'Bypass', 'A': 'Long open'
+            };
+            console.log(`\n=== [RAX] PANEL PORT/ZONE STATUS ===`);
+            let zones = [];
+            for (let i = 0; i < statuses.length; i++) {
+                const zoneNum = i + 1;
+                const char = statuses[i];
+                const meaning = statusMap[char] || `Unknown (${char})`;
+                console.log(` Zone ${String(zoneNum).padStart(2, '0')}: ${meaning}`);
+                zones.push({ zone: zoneNum, status: meaning, code: char });
+            }
+            console.log(`======================================\n`);
+            result.zonesList = zones;
+        }
     } else if (message.includes("STARTRCS")) {
         result.event = "Read channel status response";
         result.code = "RCS_RES";
+        
+        const match = message.match(/STARTRCS(.*?)END/);
+        if (match) {
+            const channelsStr = match[1];
+            const channels = channelsStr.split('&').filter(c => c.length > 0);
+            
+            console.log(`\n=== [RAX] PANEL CHANNEL STATUS ===`);
+            let chList = [];
+            for (let i = 0; i < channels.length; i++) {
+                const ch = channels[i];
+                if (ch.length === 2) {
+                    const status = ch[0];
+                    const mode = ch[1];
+                    const modeMap = {'0': 'Manual', '2': 'Auto', '3': 'Auto plus'};
+                    const modeMeaning = modeMap[mode] || `Unknown mode (${mode})`;
+                    console.log(` Channel ${String(i+1).padStart(2, '0')}: Status Code = ${status}, Mode = ${modeMeaning}`);
+                    chList.push({ channel: i+1, status: status, mode: modeMeaning, raw: ch });
+                }
+            }
+            console.log(`====================================\n`);
+            result.channelList = chList;
+        }
     } else if (message.includes("RLAR")) {
         result.event = "Read Panel ID response";
         result.code = "RLA_RES";
+        
+        const match = message.match(/RLAR(.*?)\&L(.*?)\&(.*?)\&END/);
+        if (match) {
+            console.log(`\n=== [RAX] PANEL ID DETAILS (RLA) ===`);
+            console.log(` Receiver Number (R) : ${match[1]}`);
+            console.log(` Line Number (L)     : ${match[2]}`);
+            console.log(` Account Number      : ${match[3]}`);
+            console.log(`======================================\n`);
+            result.receiverNumber = match[1];
+            result.lineNumber = match[2];
+            result.panelAccount = match[3];
+        }
+    } else if (message.startsWith("STARTPORT")) {
+        result.event = "Read Input Port Settings response";
+        result.code = "PORT_SETTING_RES";
+        
+        const regex = /STARTPORT(\d{2})(\d)(\d)(\d)(\d)(\d{15})(\d)(\d{8})(\d{8})(\d{3})(\d)\&(.*?)\&(.*?)\&(.*?)\&(.*?)\&END/;
+        const match = message.match(regex);
+        if (match) {
+            console.log(`\n=== [RAX] INPUT PORT SETTINGS ===`);
+            console.log(` Port Number          : ${match[1]}`);
+            
+            const zType = {'0':'Bypass','1':'Enable','2':'Enable Always','3':'Arming'}[match[2]] || match[2];
+            console.log(` Zone Type            : ${zType}`);
+            
+            const sType = {'0':'NC','1':'NO','2':'Analog','4':'Shutter PIR','5':'Shutter Bottom','6':'Shutter Top'}[match[3]] || match[3];
+            console.log(` Sensor Type          : ${sType}`);
+            
+            const aType = {'1':'S1 Alert','2':'S2 Alert','3':'S3 Alert'}[match[4]] || match[4];
+            console.log(` Alert Type           : ${aType}`);
+            
+            const hAct = {'1':'Enable','2':'Disable'}[match[5]] || match[5];
+            console.log(` Hooter Activate      : ${hAct}`);
+            console.log(` User Allocation      : ${match[6]}`);
+            console.log(` Alert/Hooter Timer   : ${match[7]}`);
+            console.log(` Alert Timer          : ${match[8]}`);
+            console.log(` Hooter Timer         : ${match[9]}`);
+            console.log(` Hooter Delay         : ${match[10]} seconds`);
+            console.log(` Server Type          : ${match[11]}`);
+            console.log(` SIA Alert Event Code : ${match[12]}`);
+            console.log(` SIA Normal Event Code: ${match[13]}`);
+            console.log(` SIA Zone Event Code  : ${match[14]}`);
+            const anType = {'0':'RTD','1':'NON RTD'}[match[15]] || match[15];
+            console.log(` Analog Zone Type     : ${anType}`);
+            console.log(`===================================\n`);
+            
+            result.portSettings = {
+                port: match[1], zoneType: zType, sensorType: sType, alertType: aType,
+                hooterActivate: hAct, users: match[6], timersConfig: match[7],
+                alertTimer: match[8], hooterTimer: match[9], hooterDelay: match[10],
+                serverType: match[11], siaAlert: match[12], siaNormal: match[13],
+                siaZone: match[14], analogZoneType: anType
+            };
+        } else {
+            console.log(`\n=== [RAX] INPUT PORT SETTINGS ===`);
+            console.log(` Raw Data: ${message}`);
+            console.log(`===================================\n`);
+        }
     } else {
         result.event = "Unknown RAX Response";
         result.code = "UNKNOWN_RAX";

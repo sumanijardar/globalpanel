@@ -1,0 +1,9 @@
+{
+  "host": "10.15.10.194",
+  "user": "sarsafe2",
+  "password": "Sarsoft@2026#",
+  "database": "esurv",
+  "waitForConnections": true,
+  "connectionLimit": 10,
+  "queueLimit": 0
+}

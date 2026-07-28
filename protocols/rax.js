@@ -84,13 +84,25 @@ function buildRaxCommand(commandType, account, mac, zone = "000") {
     return `STARTACC${account}MAC${mac}RRLAEND`;
   }
 
+  // Read Input Port Settings -> START ... PORTXXEND
+  if (cmd === 'READ_INPUT_PORT') {
+    const portStr = String(zone).padStart(2, '0');
+    return `STARTACC${account}MAC${mac}PORT${portStr}END`;
+  }
+
+  // Write Input Port Settings -> STARTCONFIG ... END
+  if (cmd === 'WRITE_INPUT_PORT') {
+    // We expect 'zone' to contain the full configuration string (e.g. 1001031000000090000000200002359000023590002&NBA&NBR&001&1&)
+    return `STARTCONFIGACC${account}MAC${mac}${zone}END`;
+  }
+
   return null;
 }
 
 async function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
   if (socket.destroyed) return false;
 
-  let mac = "104039025063105205"; // Default MAC
+  let mac = "104039025063105206"; // Default MAC
 
   try {
     const [rows] = await pool.query("SELECT mac_id FROM sites WHERE NewPanelID = ? LIMIT 1", [accountNo]);
@@ -198,6 +210,80 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         }
       }
     }
+
+      if (decoded.code === "RPS_RES" && decoded.zonesList) {
+        try {
+            const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            let columns = ['panelid', 'udate'];
+            let placeholders = ['?', '?'];
+            let values = [currentAccount, receivedtime];
+            let setQueryArr = ['udate = ?'];
+            let setValues = [receivedtime];
+
+            decoded.zonesList.forEach(z => {
+               if(z.zone >= 1 && z.zone <= 60) {
+                  const colName = `zon${z.zone}`;
+                  columns.push(colName);
+                  placeholders.push('?');
+                  values.push(z.status); 
+                  setQueryArr.push(`${colName} = ?`);
+                  setValues.push(z.status);
+               }
+            });
+
+            const [rows] = await pool.query("SELECT id FROM panel_health WHERE panelid = ? LIMIT 1", [currentAccount]);
+            if (rows && rows.length > 0) {
+                const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
+                await pool.query(updateQuery, [...setValues, currentAccount]);
+                console.log(`✅ [RAX] Zone status UPDATED in panel_health for Panel #${currentAccount}`);
+            } else {
+                const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+                await pool.query(insertQuery, values);
+                console.log(`✅ [RAX] Zone status INSERTED into panel_health for Panel #${currentAccount}`);
+            }
+        } catch (dbErr) {
+            console.error(`❌ [RAX] DB Error saving zone status to panel_health:`, dbErr.message);
+        }
+      }
+
+      if (decoded.code === "RCS_RES" && decoded.channelList) {
+        try {
+            const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            let setQueryArr = ['udate = ?'];
+            let setValues = [receivedtime];
+
+            decoded.channelList.forEach(c => {
+               if(c.channel >= 1 && c.channel <= 10) {
+                  const colName = `relay${c.channel}`;
+                  setQueryArr.push(`${colName} = ?`);
+                  setValues.push(c.status);
+               }
+            });
+
+            const [rows] = await pool.query("SELECT id FROM panel_health WHERE panelid = ? LIMIT 1", [currentAccount]);
+            if (rows && rows.length > 0) {
+                const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
+                await pool.query(updateQuery, [...setValues, currentAccount]);
+                console.log(`✅ [RAX] Channel status UPDATED in panel_health for Panel #${currentAccount}`);
+            } else {
+                let columns = ['panelid', 'udate'];
+                let placeholders = ['?', '?'];
+                let values = [currentAccount, receivedtime];
+                decoded.channelList.forEach(c => {
+                   if(c.channel >= 1 && c.channel <= 10) {
+                      columns.push(`relay${c.channel}`);
+                      placeholders.push('?');
+                      values.push(c.status);
+                   }
+                });
+                const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+                await pool.query(insertQuery, values);
+                console.log(`✅ [RAX] Channel status INSERTED into panel_health for Panel #${currentAccount}`);
+            }
+        } catch (dbErr) {
+            console.error(`❌ [RAX] DB Error saving channel status to panel_health:`, dbErr.message);
+        }
+      }
 
     eventLog.unshift({ ...decoded, account: decoded.account || currentAccount, raw: message, receivedAt: new Date().toISOString() });
     if (eventLog.length > MAX_LOG) eventLog.pop();
