@@ -10,6 +10,7 @@ const eventLog = [];
 const MAX_LOG = 100;
 const commandQueue = new Map();    // account -> [{ command, zone, resolve, queuedAt }]
 const connectWaiters = new Map();  // account -> [resolve]
+const rpsBuffer = new Map();       // account -> { parts: [], rawMessages: [], timeout: timerId }
 let outSequence = 1;
 
 // =================================================
@@ -38,43 +39,83 @@ function getTimestamp() {
 }
 
 function parseSIAHeader(message) {
-  const match = message.match(/^([0-9A-Fa-f]{4})([0-9A-Fa-f]{4})"(.*?)"(\d{4})(R\w+)(L\w+)#(\w+)/);
+  const match = message.match(/"(SIA-DCS|ACK)"(\d{4})(R\w+)(L\w+)#(\w+)/);
   if (match) {
+    const prefix = message.substring(0, match.index);
+    let crc = "0000";
+    let length = "0000";
+    if (prefix.length >= 8) {
+      crc = prefix.slice(-8, -4);
+      length = prefix.slice(-4);
+    } else if (prefix.length >= 4) {
+      length = prefix.slice(-4);
+    }
     return {
-      crc: match[1],
-      length: match[2],
-      protocol: match[3],
-      sequence: match[4],
-      receiver: match[5],
-      line: match[6],
-      account: match[7]
+      crc,
+      length,
+      protocol: match[1],
+      sequence: match[2],
+      receiver: match[3],
+      line: match[4],
+      account: match[5],
+      matchIndex: match.index
     };
   }
   return null;
 }
 
 function buildACK(header) {
-  const ts = getTimestamp();
-  const body = `"ACK"${header.sequence}${header.receiver}${header.line}#${header.account}[]_${ts}`;
+  // SIA standard ACK format, without the timestamp extension
+  const body = `"ACK"${header.sequence}${header.receiver}${header.line}#${header.account}[]`;
   const crc = calculateCRC16(body);
   const len = calculateLength(body);
   return `\n${crc}${len}${body}\r`;
 }
 
-// Commands mapping based on Securico GX4816 protocol
+// Commands mapping strictly based on Securico GX4816 protocol Excel and matched to RAX commands for API compatibility where applicable
 const COMMAND_MAP = {
+  // Common Panel Controls
   'ARM': 'DCS016|W|000|4',
   'DISARM': 'DCS016|W|000|5',
-  'SIREN_ON': 'DCS007|W|{ZONE}|3',
-  'SIREN_OFF': 'DCS007|W|{ZONE}|2',
-  'EML_OPEN': 'DCS007|W|003|3',
-  'DVR_RESET': 'DCS007|W|007|3',
-  'ROUTER_RESET': 'DCS007|W|004|3',
-  'GSM_RESET': 'DCS007|W|005|3',
-  'FIRE_RESET': 'DCS007|W|006|3',
   'RESET': 'DCS015|W|0',
+  'RESTART': 'DCS015|W|0',
+  'PANEL_RESTART': 'DCS015|W|0',
+
+  // Hooter/Siren (Relay 1 - External)
+  'HOOTER': 'DCS007|W|001|3',
+  'SIREN_ON': 'DCS007|W|{ZONE}|3', // {ZONE} logic handles fallback to 002 if 000 is passed
+  'SIREN_OFF': 'DCS007|W|{ZONE}|2',
+
+  // EML (Relay 3 - Auto Lock After 10 Sec)
+  'EML_OPEN': 'DCS007|W|003|3',
+  'EML_ON': 'DCS007|W|003|3',
+
+  // Router Reset (Relay 4 - Auto Restore After 10 Sec)
+  'ROUTER_RESET': 'DCS007|W|004|3',
+
+  // GSM Two Way Reset (Relay 5 - Auto Restore After 10 Sec)
+  'GSM_RESET': 'DCS007|W|005|3',
+
+  // Fire Reset (Relay 6 - Auto Restore After 10 Sec)
+  'FIRE_RESET': 'DCS007|W|006|3',
+  'SMOKE_RESET': 'DCS007|W|006|3', // Mapped from RAX for Fire Reset
+
+  // DVR Reset (Relay 7 - Auto Restore After 10 Sec)
+  'DVR_RESET': 'DCS007|W|007|3',
+
+  // Zone bypass / Un-bypass
   'BYPASS': 'DCS033|W|{ZONE}|0',
-  'UNBYPASS': 'DCS033|W|{ZONE}|1'
+  'UNBYPASS': 'DCS033|W|{ZONE}|1',
+
+  // Read Port Status (Zones)
+  'READ_PORT_STATUS_1': 'DCS008|R|000', // Zones 1-20
+  'READ_PORT_STATUS_2': 'DCS008|R|001', // Zones 21-40
+  'READ_PORT_STATUS_3': 'DCS008|R|002', // Zones 41-47
+  
+  // Additional Status Commands
+  'READ_RELAY_STATUS': 'DCS009|R|000',
+  'READ_ARM_STATUS': 'DCS010|R|000',
+  'READ_USER_STATUS': 'DCS010|R|000' // Alias
 };
 
 function buildSIACommand(commandType, account, zone = "000", receiver = "R000001", line = "L000000") {
@@ -122,6 +163,15 @@ function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
     return false;
   }
 
+  // Handle multi-part commands like READ_PORT_STATUS
+  if (commandType.toUpperCase() === 'READ_PORT_STATUS') {
+    const cmd1 = buildSIACommand('READ_PORT_STATUS_1', accountNo, zone);
+    if (cmd1) socket.write(cmd1);
+    
+    console.log(`\n📤 [SECURICO] Command Sent [READ_PORT_STATUS_1] (Starting Sequence)`);
+    return true;
+  }
+
   const cmd = buildSIACommand(commandType, accountNo, zone);
   if (!cmd) {
     console.log(`⚠️ SECURICO Unknown Command: ${commandType}`);
@@ -160,7 +210,7 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
 
     let crcOK = false, lenOK = false;
     if (header) {
-      const dataBody = message.substring(8);
+      const dataBody = message.substring(header.matchIndex);
       const calculatedCRC = calculateCRC16(dataBody);
       const calculatedLen = calculateLength(dataBody);
       crcOK = header.crc.toUpperCase() === calculatedCRC.toUpperCase();
@@ -176,8 +226,82 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         for (const resolve of waiters) resolve({ account: currentAccount });
         connectWaiters.set(currentAccount, []);
       }
+    }
 
-      if (decoded.code) {
+    // --- SEND ACK OR PENDING COMMANDS IMMEDIATELY ---
+    if (header && !socket.destroyed) {
+      let commandSentFromQueue = false;
+      if (currentAccount) {
+        const queue = commandQueue.get(currentAccount);
+        if (queue && queue.length > 0) {
+          const pending = [...queue];
+          commandQueue.set(currentAccount, []);
+          for (const item of pending) {
+            const success = sendCommandToPanel(socket, item.command, currentAccount, item.zone || '000');
+            if (success) {
+              commandSentFromQueue = true;
+              if (item.resolve) item.resolve({ sent: true, command: item.command, zone: item.zone || '000', sentAt: new Date().toISOString() });
+            } else {
+              if (item.resolve) item.resolve({ sent: false, command: item.command });
+            }
+          }
+        }
+      }
+      if (!commandSentFromQueue && !message.includes('"ACK"')) {
+        // Do not send ACK for RPS_RES (Zone Status Responses) as they are replies to our queries
+        // and sending an ACK might cause the panel to drop the connection due to unexpected data.
+        if (decoded && decoded.code !== "RPS_RES") {
+          const ackMsg = buildACK(header);
+          socket.write(ackMsg);
+          console.log(`📤 [SECURICO] ACK Sent: ${ackMsg.trim()}`);
+        } else {
+          console.log(`ℹ️ [SECURICO] Skipped ACK for response type: ${decoded.code}`);
+        }
+      }
+    }
+    // ------------------------------------------------
+
+    if (decoded.code === "RPS_RES" && decoded.zonesList) {
+        if (decoded.event && decoded.event.startsWith("Zone Status Response Part")) {
+            if (!rpsBuffer.has(currentAccount)) {
+                rpsBuffer.set(currentAccount, { 
+                    parts: [], 
+                    rawMessages: [],
+                    timeout: setTimeout(() => {
+                        const buffer = rpsBuffer.get(currentAccount);
+                        if (buffer) {
+                            mergeAndPushRPS(currentAccount, buffer, crcOK, remoteIp);
+                            rpsBuffer.delete(currentAccount);
+                        }
+                    }, 5000)
+                });
+            }
+            const buffer = rpsBuffer.get(currentAccount);
+            buffer.parts.push(decoded);
+            buffer.rawMessages.push(message);
+
+            // Sequential triggering of the next parts
+            if (decoded.event.includes("Part 0")) {
+                const cmd2 = buildSIACommand('READ_PORT_STATUS_2', currentAccount, "000");
+                if (cmd2 && !socket.destroyed) socket.write(cmd2);
+                console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_2 in sequence`);
+            } else if (decoded.event.includes("Part 1")) {
+                const cmd3 = buildSIACommand('READ_PORT_STATUS_3', currentAccount, "000");
+                if (cmd3 && !socket.destroyed) socket.write(cmd3);
+                console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_3 in sequence`);
+            }
+
+            if (buffer.parts.length >= 3) {
+                clearTimeout(buffer.timeout);
+                mergeAndPushRPS(currentAccount, buffer, crcOK, remoteIp);
+                rpsBuffer.delete(currentAccount);
+            }
+            return; // Skip normal pushing to eventLog for parts
+        } else {
+            // Full 47 char response
+            await processRpsDb(decoded, currentAccount, remoteIp);
+        }
+      } else if (decoded.code) {
         const seqno = header ? header.sequence : '0000';
         const alarmCode = decoded.code;
         const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -223,7 +347,6 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
           console.error(`❌ DB Error (${targetTable}):`, err.message);
         }
       }
-    }
 
     eventLog.unshift({
       ...decoded,
@@ -232,36 +355,87 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
       receivedAt: new Date().toISOString()
     });
     if (eventLog.length > MAX_LOG) eventLog.pop();
-
-    if (header && !socket.destroyed) {
-      let commandSentFromQueue = false;
-      if (currentAccount) {
-        const queue = commandQueue.get(currentAccount);
-        if (queue && queue.length > 0) {
-          const pending = [...queue];
-          commandQueue.set(currentAccount, []);
-          for (const item of pending) {
-            const success = sendCommandToPanel(socket, item.command, currentAccount, item.zone || '000');
-            if (success) {
-              commandSentFromQueue = true;
-              if (item.resolve) item.resolve({ sent: true, command: item.command, zone: item.zone || '000', sentAt: new Date().toISOString() });
-            } else {
-              if (item.resolve) item.resolve({ sent: false, command: item.command });
-            }
-          }
-        }
-      }
-      if (!commandSentFromQueue && !message.includes('"ACK"')) {
-        const ackMsg = buildACK(header);
-        socket.write(ackMsg);
-        console.log(`📤 [SECURICO] ACK Sent: ${ackMsg.trim()}`);
-      }
-    }
   });
 
   socket.on("end", () => { if (currentAccount) activeSockets.delete(currentAccount); });
   socket.on("error", () => { });
   socket.on("close", () => { if (currentAccount) activeSockets.delete(currentAccount); });
+}
+
+async function processRpsDb(decoded, currentAccount, remoteIp) {
+    try {
+        const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        
+        let panelName = '';
+        try {
+            const [siteRows] = await pool.query("SELECT Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
+            if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
+        } catch (err) { /* ignore */ }
+
+        let columns = ['panelid', 'udate', 'ip'];
+        let placeholders = ['?', '?', '?'];
+        let values = [currentAccount, receivedtime, remoteIp || ''];
+        let setQueryArr = ['udate = ?', 'ip = ?'];
+        let setValues = [receivedtime, remoteIp || ''];
+
+        if (panelName) {
+            columns.push('panelName');
+            placeholders.push('?');
+            values.push(panelName);
+            setQueryArr.push('panelName = ?');
+            setValues.push(panelName);
+        }
+
+        decoded.zonesList.forEach(z => {
+           if(z.zone >= 1 && z.zone <= 60) {
+              const colName = `zon${z.zone}`;
+              columns.push(colName);
+              placeholders.push('?');
+              values.push(z.status); 
+              setQueryArr.push(`${colName} = ?`);
+              setValues.push(z.status);
+           }
+        });
+
+        const [rows] = await pool.query("SELECT id FROM panel_health WHERE panelid = ? LIMIT 1", [currentAccount]);
+        if (rows && rows.length > 0) {
+            const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
+            await pool.query(updateQuery, [...setValues, currentAccount]);
+            console.log(`✅ [SECURICO] Zone status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
+        } else {
+            const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+            await pool.query(insertQuery, values);
+            console.log(`✅ [SECURICO] Zone status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
+        }
+    } catch (dbErr) {
+        console.error(`❌ [SECURICO] DB Error saving zone status to panel_health:`, dbErr.message);
+    }
+}
+
+async function mergeAndPushRPS(account, buffer, crcOK, remoteIp) {
+    let allZones = [];
+    buffer.parts.forEach(p => {
+        allZones = allZones.concat(p.zonesList || []);
+    });
+    // Sort zones to ensure correct ordering (1 to 47)
+    allZones.sort((a, b) => a.zone - b.zone);
+    
+    const merged = { ...buffer.parts[0] };
+    merged.event = "Zone Status Response";
+    merged.zonesList = allZones;
+    merged.raw = buffer.rawMessages.join(" || ");
+    
+    // Push to eventLog
+    eventLog.unshift({
+      ...merged,
+      crcValid: crcOK,
+      receivedAt: new Date().toISOString()
+    });
+    if (eventLog.length > MAX_LOG) eventLog.pop();
+    
+    // Process DB update
+    await processRpsDb(merged, account, remoteIp);
+    console.log(`✅ [SECURICO] Buffered RPS merged and logged for Panel #${account} with ${allZones.length} zones.`);
 }
 
 function initiatePanelConnection(panelId, ip) {
@@ -364,10 +538,11 @@ function queueCommand(account, command, zone, maxWait = 60000) {
     const timeBefore = new Date().toISOString();
     if (sock && !sock.destroyed) {
       const success = sendCommandToPanel(sock, command, account, zone);
+      // Wait 5000ms to allow multi-part commands like READ_PORT_STATUS to complete
       setTimeout(() => {
         const newEvents = eventLog.filter(e => e.account === account && e.receivedAt > timeBefore);
         resolve({ success, status: "sent_immediately", panelResponse: newEvents, responseCount: newEvents.length });
-      }, 3000);
+      }, 5000);
     } else {
       if (!commandQueue.has(account)) commandQueue.set(account, []);
       let done = false;
@@ -379,7 +554,7 @@ function queueCommand(account, command, zone, maxWait = 60000) {
             setTimeout(() => {
               const newEvents = eventLog.filter(e => e.account === account && e.receivedAt > (res.sentAt || timeBefore));
               resolve({ success: res.sent, status: "sent_from_queue", panelResponse: newEvents, responseCount: newEvents.length });
-            }, 3000);
+            }, 5000);
           }
         }
       });
