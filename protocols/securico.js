@@ -269,30 +269,20 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
                 mergeAndPushRPS(currentAccount, buffer, crcOK, remoteIp);
                 rpsBuffer.delete(currentAccount);
               }
-            }, 5000)
+            }, 15000)
           });
         }
         const buffer = rpsBuffer.get(currentAccount);
         buffer.parts.push(decoded);
         buffer.rawMessages.push(message);
 
-        // Sequential triggering of the next parts with 500ms delay to allow ACK to process
+        // Sequential triggering of the next parts via Queue (handles panels that disconnect after replying)
         if (decoded.event.includes("Part 0")) {
-          setTimeout(() => {
-            const cmd2 = buildSIACommand('READ_PORT_STATUS_2', currentAccount, "000");
-            if (cmd2 && !socket.destroyed) {
-              socket.write(cmd2);
-              console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_2 in sequence`);
-            }
-          }, 500);
+          console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_2 for Panel #${currentAccount}...`);
+          queueCommand(currentAccount, 'READ_PORT_STATUS_2', "000");
         } else if (decoded.event.includes("Part 1")) {
-          setTimeout(() => {
-            const cmd3 = buildSIACommand('READ_PORT_STATUS_3', currentAccount, "000");
-            if (cmd3 && !socket.destroyed) {
-              socket.write(cmd3);
-              console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_3 in sequence`);
-            }
-          }, 500);
+          console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_3 for Panel #${currentAccount}...`);
+          queueCommand(currentAccount, 'READ_PORT_STATUS_3', "000");
         }
 
         if (buffer.parts.length >= 3) {
