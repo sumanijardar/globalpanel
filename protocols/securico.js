@@ -280,11 +280,13 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         if (decoded.event.includes("Part 0")) {
           setTimeout(() => {
             console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_2 for Panel #${currentAccount}...`);
+            if (!socket.destroyed) socket.destroy(); // Force new connection for panels that hang
             queueCommand(currentAccount, 'READ_PORT_STATUS_2', "000");
           }, 500);
         } else if (decoded.event.includes("Part 1")) {
           setTimeout(() => {
             console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_3 for Panel #${currentAccount}...`);
+            if (!socket.destroyed) socket.destroy(); // Force new connection for panels that hang
             queueCommand(currentAccount, 'READ_PORT_STATUS_3', "000");
           }, 500);
         }
