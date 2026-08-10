@@ -447,11 +447,12 @@ async function processRpsDb(decoded, currentAccount, remoteIp) {
     decoded.zonesList.forEach(z => {
       if (z.zone >= 1 && z.zone <= 60) {
         const colName = `zon${z.zone}`;
+        const finalStatus = z.statusDescription || z.status;
         columns.push(colName);
         placeholders.push('?');
-        values.push(z.status);
+        values.push(finalStatus);
         setQueryArr.push(`${colName} = ?`);
-        setValues.push(z.status);
+        setValues.push(finalStatus);
       }
     });
 
