@@ -16,3 +16,23 @@ xls_content.txt
 server_config.json
 *.exe
 *.csv
+
+# Output and dump files
+*.log
+*.txt
+*dump.json
+
+# Scratch and test files
+read_xls2.js
+read_zicom.js
+check_db.js
+test_decode.js
+test_regex.js
+
+# Backup documents
+Protocol doc - Copy.xlsx
+
+# OS and IDE files
+.DS_Store
+.vscode/
+Thumbs.db

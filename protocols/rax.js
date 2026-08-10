@@ -69,6 +69,16 @@ function buildRaxCommand(commandType, account, mac, zone = "000") {
     return `STARTACC${account}MAC${mac}RESETEND`;
   }
 
+  // Arm Panel -> WAFL&1...
+  if (cmd === 'ARM' || cmd === 'ARM_PANEL') {
+    return `STARTACC${account}MAC${mac}WAFL&1#1301#1330#1331#09001800#001#NAG#NCG#NOG#NXP#0303#11#0010&END`;
+  }
+
+  // Disarm Panel -> WAFL&0...
+  if (cmd === 'DISARM' || cmd === 'DISARM_PANEL') {
+    return `STARTACC${account}MAC${mac}WAFL&0#1301#1330#1331#09001800#001#NAG#NCG#NOG#NXP#0303#11#0010&END`;
+  }
+
   // Read Port Status -> START ... RPSENDD
   if (cmd === 'READ_PORT_STATUS') {
     return `STARTACC${account}MAC${mac}RPSENDD`;
@@ -102,7 +112,7 @@ function buildRaxCommand(commandType, account, mac, zone = "000") {
 async function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
   if (socket.destroyed) return false;
 
-  let mac = "104039025063105206"; // Default MAC
+  let mac = "104039025063100105";    // Default MAC
 
   try {
     const [rows] = await pool.query("SELECT mac_id FROM sites WHERE NewPanelID = ? LIMIT 1", [accountNo]);

@@ -278,17 +278,93 @@ function decodeSIA(message) {
 
             // Look up event name
             let eventDesc = "Unknown Event";
-            const zoneInfo = ZONE_MAP[result.zone];
-            if (zoneInfo) {
-                if (result.code === zoneInfo.alarmCode) {
-                    eventDesc = zoneInfo.name + " Alarm";
-                } else if (result.code === zoneInfo.restoreCode) {
-                    eventDesc = zoneInfo.name + " Restoral";
+            let matchedCustom = true;
+            
+            // SmartI 8IO ATM Event Codes specific mapping
+            const e = eventPart;
+            if (e === 'NZZ014') eventDesc = "System Restarted (Power On)";
+            else if (e === 'NZZ027') eventDesc = "System Initialized with default settings";
+            else if (e === 'NZZ025') eventDesc = "User Login through keypad with Valid Password";
+            else if (e === 'NZZ123') eventDesc = "User Login through keypad with Invalid Password";
+            else if (e === 'NZZ001') eventDesc = "Card Accepted / Authorized Access";
+            else if (e === 'NZZ002') eventDesc = "Card Not Accepted / Unauthorized Access";
+            else if (e === 'NCP001') eventDesc = "System Partial Arm";
+            else if (e === 'NCF001') eventDesc = "Full System Arm";
+            else if (e === 'NOF001') eventDesc = "Full System Disarm";
+            else if (e === 'NCT001') eventDesc = "System Test Mode DeActive";
+            else if (e === 'NOT001') eventDesc = "System Test Mode Active";
+            else if (e === 'NOP055') eventDesc = "PT 100 PCB DISCONNECT";
+            else if (e === 'NOR055') eventDesc = "PT 100 PCB CONNECT";
+            else if (e === 'NRC001') eventDesc = "RTC Corruption Observed";
+            else if (e === 'NBA060') eventDesc = "ACKNOWLEDGE";
+            else if (e === 'NMF000') eventDesc = "Modbus Fail";
+            else if (e === 'CHF002') eventDesc = "HDD Error";
+            else if (e === 'CHF000') eventDesc = "HDD OK";
+            else if (e.startsWith('NCL')) eventDesc = `System Arm for Zone No.- ${e.substring(3)}`;
+            else if (e.startsWith('NOA')) eventDesc = `System Disarm for Zone No.- ${e.substring(3)}`;
+            else if (e.startsWith('NCG')) eventDesc = `System Arm for InGroup No.- ${e.substring(3)}`;
+            else if (e.startsWith('NOG')) eventDesc = `System Disarm for InGroup No.- ${e.substring(3)}`;
+            else if (e.startsWith('NAG')) eventDesc = `System Auto Arm for InGroup No.- ${e.substring(3)}`;
+            else if (e.startsWith('NDO')) eventDesc = `Intrusion/Force Door Open/Entry Dly Expired (Zone ${e.substring(3)})`;
+            else if (e.startsWith('NTN')) eventDesc = `TEMP_ NORMAL`;
+            else if (e.startsWith('NTH')) eventDesc = `TEMP_ HIGH`;
+            else if (e.startsWith('NTL')) eventDesc = `TEMP_ LOW`;
+            else if (e.startsWith('NMF')) eventDesc = `Masked Face Detected (Zone ${e.substring(3)})`;
+            else if (e.startsWith('NGM')) eventDesc = `EVENT_GUARD_PATROL_MISS (Zone ${e.substring(3)})`;
+            else if (e.startsWith('NZH')) eventDesc = `Output ${e.substring(3)} activated`;
+            else if (e.startsWith('NZL')) eventDesc = `Output ${e.substring(3)} deactivated`;
+            else if (e.startsWith('NZP')) eventDesc = `Pattern Output ${e.substring(3)}`;
+            else if (e.startsWith('NNA')) eventDesc = `Network Alarm`;
+            else if (e.startsWith('NZT')) eventDesc = `TimeBased Relay Reset`;
+            else if (e.startsWith('NTA')) eventDesc = `Zone ${e.substring(3)} System Test Mode ON`;
+            else if (e.startsWith('NTR')) eventDesc = `Zone ${e.substring(3)} System Test Mode OFF`;
+            else if (e.startsWith('NOL') || e.startsWith(' NOL')) eventDesc = `Zone ${e.substring(e.length - 3)} open too long`;
+            else if (e.startsWith('DDA')) eventDesc = `Duress Disarm Alert (Group/Zone ${e.substring(3)})`;
+            else if (e.startsWith('NRA')) eventDesc = `AC ON feedback (AC ${e.substring(3)})`;
+            else if (e.startsWith('NRR')) eventDesc = `AC OFF feedback (AC ${e.substring(3)})`;
+            else if (e.startsWith('NMD')) eventDesc = `PIR detect in night Time (Zone ${e.substring(3)})`;
+            else if (e.startsWith('CCB')) eventDesc = `Camera Mask Error (Cam ${e.substring(3)})`;
+            else if (e.startsWith('CCO')) eventDesc = `Camera Mask Ok (Cam ${e.substring(3)})`;
+            else if (e.startsWith('CNVF')) { 
+                eventDesc = `Camera Video Loss (Cam ${e.substring(4)})`; 
+                result.code = 'CN';
+                result.zone = e.substring(4);
+            }
+            else if (e.startsWith('CNO')) eventDesc = `Camera Video OK (Cam ${e.substring(3)})`;
+            else if (e.startsWith('SFC')) {
+                eventDesc = `Shutter Force Close (Zone ${e.substring(3)})`;
+                result.code = 'SF'; 
+                result.zone = e.substring(3);
+            }
+            else if (e.startsWith('SNC')) {
+                eventDesc = `Shutter Close (Zone ${e.substring(3)})`;
+                result.code = 'SN'; 
+                result.zone = e.substring(3);
+            }
+            else if (e.startsWith('NBA008')) eventDesc = "Signage light Off feedback";
+            else if (e.startsWith('NBR008')) eventDesc = "Signage light ON feedback";
+            else {
+                matchedCustom = false;
+            }
+
+            // DO NOT TOUCH NHA AND NHR (Siren / Hooter)
+            if (e.startsWith('NHA') || e.startsWith('NHR')) {
+                matchedCustom = false;
+            }
+
+            if (!matchedCustom) {
+                const zoneInfo = ZONE_MAP[result.zone];
+                if (zoneInfo) {
+                    if (result.code === zoneInfo.alarmCode) {
+                        eventDesc = zoneInfo.name + " Alarm";
+                    } else if (result.code === zoneInfo.restoreCode) {
+                        eventDesc = zoneInfo.name + " Restoral";
+                    } else {
+                        eventDesc = zoneInfo.name + " (" + (GENERIC_EVENTS[result.code] || result.code) + ")";
+                    }
                 } else {
-                    eventDesc = zoneInfo.name + " (" + (GENERIC_EVENTS[result.code] || result.code) + ")";
+                    eventDesc = GENERIC_EVENTS[result.code] || `Unknown Event (${result.code})`;
                 }
-            } else {
-                eventDesc = GENERIC_EVENTS[result.code] || `Unknown Event (${result.code})`;
             }
 
             result.event = eventDesc;

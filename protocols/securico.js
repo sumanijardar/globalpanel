@@ -72,7 +72,7 @@ function buildACK(header) {
   return `\n${crc}${len}${body}\r`;
 }
 
-// Commands mapping strictly based on Securico GX4816 protocol Excel and matched to RAX commands for API compatibility where applicable
+
 const COMMAND_MAP = {
   // Common Panel Controls
   'ARM': 'DCS016|W|000|4',
@@ -98,7 +98,7 @@ const COMMAND_MAP = {
 
   // Fire Reset (Relay 6 - Auto Restore After 10 Sec)
   'FIRE_RESET': 'DCS007|W|006|3',
-  'SMOKE_RESET': 'DCS007|W|006|3', // Mapped from RAX for Fire Reset
+  'SMOKE_RESET': 'DCS007|W|006|3',
 
   // DVR Reset (Relay 7 - Auto Restore After 10 Sec)
   'DVR_RESET': 'DCS007|W|007|3',
@@ -111,7 +111,7 @@ const COMMAND_MAP = {
   'READ_PORT_STATUS_1': 'DCS008|R|000', // Zones 1-20
   'READ_PORT_STATUS_2': 'DCS008|R|001', // Zones 21-40
   'READ_PORT_STATUS_3': 'DCS008|R|002', // Zones 41-47
-  
+
   // Additional Status Commands
   'READ_RELAY_STATUS': 'DCS009|R|000',
   'READ_ARM_STATUS': 'DCS010|R|000',
@@ -137,7 +137,7 @@ function buildSIACommand(commandType, account, zone = "000", receiver = "R000001
 
   // Securico panels expect a 6-digit account number (e.g., #040205)
   const paddedAccount = String(account).padStart(6, '0');
-  
+
   // Excel specifies L000001 and a space before bracket for BYPASS commands
   if (commandType.toUpperCase().includes('BYPASS')) {
     line = "L000001";
@@ -146,7 +146,7 @@ function buildSIACommand(commandType, account, zone = "000", receiver = "R000001
     // Securico format: [#ACCOUNT|payload]
     var dataWithoutTs = `"SIA-DCS"${seq}${receiver}${line}#${paddedAccount}[#${paddedAccount}|${commandPayload}]`;
   }
-  
+
   const dataWithTs = dataWithoutTs + '_' + ts;
 
   const crc = calculateCRC16(dataWithTs);
@@ -167,7 +167,7 @@ function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
   if (commandType.toUpperCase() === 'READ_PORT_STATUS') {
     const cmd1 = buildSIACommand('READ_PORT_STATUS_1', accountNo, zone);
     if (cmd1) socket.write(cmd1);
-    
+
     console.log(`\n📤 [SECURICO] Command Sent [READ_PORT_STATUS_1] (Starting Sequence)`);
     return true;
   }
@@ -262,91 +262,91 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
     // ------------------------------------------------
 
     if (decoded.code === "RPS_RES" && decoded.zonesList) {
-        if (decoded.event && decoded.event.startsWith("Zone Status Response Part")) {
-            if (!rpsBuffer.has(currentAccount)) {
-                rpsBuffer.set(currentAccount, { 
-                    parts: [], 
-                    rawMessages: [],
-                    timeout: setTimeout(() => {
-                        const buffer = rpsBuffer.get(currentAccount);
-                        if (buffer) {
-                            mergeAndPushRPS(currentAccount, buffer, crcOK, remoteIp);
-                            rpsBuffer.delete(currentAccount);
-                        }
-                    }, 5000)
-                });
-            }
-            const buffer = rpsBuffer.get(currentAccount);
-            buffer.parts.push(decoded);
-            buffer.rawMessages.push(message);
-
-            // Sequential triggering of the next parts
-            if (decoded.event.includes("Part 0")) {
-                const cmd2 = buildSIACommand('READ_PORT_STATUS_2', currentAccount, "000");
-                if (cmd2 && !socket.destroyed) socket.write(cmd2);
-                console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_2 in sequence`);
-            } else if (decoded.event.includes("Part 1")) {
-                const cmd3 = buildSIACommand('READ_PORT_STATUS_3', currentAccount, "000");
-                if (cmd3 && !socket.destroyed) socket.write(cmd3);
-                console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_3 in sequence`);
-            }
-
-            if (buffer.parts.length >= 3) {
-                clearTimeout(buffer.timeout);
+      if (decoded.event && decoded.event.startsWith("Zone Status Response Part")) {
+        if (!rpsBuffer.has(currentAccount)) {
+          rpsBuffer.set(currentAccount, {
+            parts: [],
+            rawMessages: [],
+            timeout: setTimeout(() => {
+              const buffer = rpsBuffer.get(currentAccount);
+              if (buffer) {
                 mergeAndPushRPS(currentAccount, buffer, crcOK, remoteIp);
                 rpsBuffer.delete(currentAccount);
-            }
-            return; // Skip normal pushing to eventLog for parts
-        } else {
-            // Full 47 char response
-            await processRpsDb(decoded, currentAccount, remoteIp);
+              }
+            }, 5000)
+          });
         }
-      } else if (decoded.code) {
-        const seqno = header ? header.sequence : '0000';
-        const alarmCode = decoded.code;
-        const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const buffer = rpsBuffer.get(currentAccount);
+        buffer.parts.push(decoded);
+        buffer.rawMessages.push(message);
 
-        let priority = 'N', level = 0, targetTable = 'alerts';
-        const configsArray = panelConfigCache.get('SECURICO');
-
-        if (configsArray) {
-          let matchedConfig = null;
-          for (const config of configsArray) {
-            if (config.alarmCodeArr.includes(alarmCode)) {
-              matchedConfig = config;
-              break;
-            }
-          }
-
-          if (matchedConfig) {
-            if (matchedConfig.destination === 'back') {
-              targetTable = 'backalerts';
-            } else if (matchedConfig.destination === 'front') {
-              targetTable = 'alerts';
-              if (matchedConfig.level1Arr.includes(alarmCode)) { level = 1; priority = 'Y'; }
-              else if (matchedConfig.level2Arr.includes(alarmCode)) { level = 2; priority = 'Y'; }
-              else if (matchedConfig.level3Arr.includes(alarmCode)) { level = 3; priority = 'Y'; }
-              else { level = 0; priority = matchedConfig.rowPriority; }
-            }
-          }
+        // Sequential triggering of the next parts
+        if (decoded.event.includes("Part 0")) {
+          const cmd2 = buildSIACommand('READ_PORT_STATUS_2', currentAccount, "000");
+          if (cmd2 && !socket.destroyed) socket.write(cmd2);
+          console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_2 in sequence`);
+        } else if (decoded.event.includes("Part 1")) {
+          const cmd3 = buildSIACommand('READ_PORT_STATUS_3', currentAccount, "000");
+          if (cmd3 && !socket.destroyed) socket.write(cmd3);
+          console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_3 in sequence`);
         }
 
-        const baseValues = [
-          currentAccount, seqno, decoded.zone || '000', alarmCode,
-          decoded.formattedDate || receivedtime, decoded.event || ''
-        ];
+        if (buffer.parts.length >= 3) {
+          clearTimeout(buffer.timeout);
+          mergeAndPushRPS(currentAccount, buffer, crcOK, remoteIp);
+          rpsBuffer.delete(currentAccount);
+        }
+        return; // Skip normal pushing to eventLog for parts
+      } else {
+        // Full 47 char response
+        await processRpsDb(decoded, currentAccount, remoteIp);
+      }
+    } else if (decoded.code) {
+      const seqno = header ? header.sequence : '0000';
+      const alarmCode = decoded.code;
+      const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-        try {
-          await pool.query(`INSERT INTO alerts_copy (panelid, seqno, zone, alarm, createtime, alerttype, status) VALUES (?, ?, ?, ?, ?, ?,'O')`, baseValues);
-        } catch (err) { }
+      let priority = 'N', level = 0, targetTable = 'alerts';
+      const configsArray = panelConfigCache.get('SECURICO');
 
-        try {
-          await pool.query(`INSERT INTO ${targetTable} (panelid, seqno, zone, alarm, createtime, alerttype, status, priority, level) VALUES (?, ?, ?, ?, ?, ?, 'O', ?, ?)`, [...baseValues, priority, level]);
-          console.log(`✅ [SECURICO] Data successfully saved to ${targetTable} (Alarm: ${alarmCode})`);
-        } catch (err) {
-          console.error(`❌ DB Error (${targetTable}):`, err.message);
+      if (configsArray) {
+        let matchedConfig = null;
+        for (const config of configsArray) {
+          if (config.alarmCodeArr.includes(alarmCode)) {
+            matchedConfig = config;
+            break;
+          }
+        }
+
+        if (matchedConfig) {
+          if (matchedConfig.destination === 'back') {
+            targetTable = 'backalerts';
+          } else if (matchedConfig.destination === 'front') {
+            targetTable = 'alerts';
+            if (matchedConfig.level1Arr.includes(alarmCode)) { level = 1; priority = 'Y'; }
+            else if (matchedConfig.level2Arr.includes(alarmCode)) { level = 2; priority = 'Y'; }
+            else if (matchedConfig.level3Arr.includes(alarmCode)) { level = 3; priority = 'Y'; }
+            else { level = 0; priority = matchedConfig.rowPriority; }
+          }
         }
       }
+
+      const baseValues = [
+        currentAccount, seqno, decoded.zone || '000', alarmCode,
+        decoded.formattedDate || receivedtime, decoded.event || ''
+      ];
+
+      try {
+        await pool.query(`INSERT INTO alerts_copy (panelid, seqno, zone, alarm, createtime, alerttype, status) VALUES (?, ?, ?, ?, ?, ?,'O')`, baseValues);
+      } catch (err) { }
+
+      try {
+        await pool.query(`INSERT INTO ${targetTable} (panelid, seqno, zone, alarm, createtime, alerttype, status, priority, level) VALUES (?, ?, ?, ?, ?, ?, 'O', ?, ?)`, [...baseValues, priority, level]);
+        console.log(`✅ [SECURICO] Data successfully saved to ${targetTable} (Alarm: ${alarmCode})`);
+      } catch (err) {
+        console.error(`❌ DB Error (${targetTable}):`, err.message);
+      }
+    }
 
     eventLog.unshift({
       ...decoded,
@@ -363,79 +363,79 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
 }
 
 async function processRpsDb(decoded, currentAccount, remoteIp) {
+  try {
+    const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    let panelName = '';
     try {
-        const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        
-        let panelName = '';
-        try {
-            const [siteRows] = await pool.query("SELECT Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
-            if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
-        } catch (err) { /* ignore */ }
+      const [siteRows] = await pool.query("SELECT Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
+      if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
+    } catch (err) { /* ignore */ }
 
-        let columns = ['panelid', 'udate', 'ip'];
-        let placeholders = ['?', '?', '?'];
-        let values = [currentAccount, receivedtime, remoteIp || ''];
-        let setQueryArr = ['udate = ?', 'ip = ?'];
-        let setValues = [receivedtime, remoteIp || ''];
+    let columns = ['panelid', 'udate', 'ip'];
+    let placeholders = ['?', '?', '?'];
+    let values = [currentAccount, receivedtime, remoteIp || ''];
+    let setQueryArr = ['udate = ?', 'ip = ?'];
+    let setValues = [receivedtime, remoteIp || ''];
 
-        if (panelName) {
-            columns.push('panelName');
-            placeholders.push('?');
-            values.push(panelName);
-            setQueryArr.push('panelName = ?');
-            setValues.push(panelName);
-        }
-
-        decoded.zonesList.forEach(z => {
-           if(z.zone >= 1 && z.zone <= 60) {
-              const colName = `zon${z.zone}`;
-              columns.push(colName);
-              placeholders.push('?');
-              values.push(z.status); 
-              setQueryArr.push(`${colName} = ?`);
-              setValues.push(z.status);
-           }
-        });
-
-        const [rows] = await pool.query("SELECT id FROM panel_health WHERE panelid = ? LIMIT 1", [currentAccount]);
-        if (rows && rows.length > 0) {
-            const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
-            await pool.query(updateQuery, [...setValues, currentAccount]);
-            console.log(`✅ [SECURICO] Zone status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
-        } else {
-            const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
-            await pool.query(insertQuery, values);
-            console.log(`✅ [SECURICO] Zone status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
-        }
-    } catch (dbErr) {
-        console.error(`❌ [SECURICO] DB Error saving zone status to panel_health:`, dbErr.message);
+    if (panelName) {
+      columns.push('panelName');
+      placeholders.push('?');
+      values.push(panelName);
+      setQueryArr.push('panelName = ?');
+      setValues.push(panelName);
     }
+
+    decoded.zonesList.forEach(z => {
+      if (z.zone >= 1 && z.zone <= 60) {
+        const colName = `zon${z.zone}`;
+        columns.push(colName);
+        placeholders.push('?');
+        values.push(z.status);
+        setQueryArr.push(`${colName} = ?`);
+        setValues.push(z.status);
+      }
+    });
+
+    const [rows] = await pool.query("SELECT id FROM panel_health WHERE panelid = ? LIMIT 1", [currentAccount]);
+    if (rows && rows.length > 0) {
+      const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
+      await pool.query(updateQuery, [...setValues, currentAccount]);
+      console.log(`✅ [SECURICO] Zone status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
+    } else {
+      const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+      await pool.query(insertQuery, values);
+      console.log(`✅ [SECURICO] Zone status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
+    }
+  } catch (dbErr) {
+    console.error(`❌ [SECURICO] DB Error saving zone status to panel_health:`, dbErr.message);
+  }
 }
 
 async function mergeAndPushRPS(account, buffer, crcOK, remoteIp) {
-    let allZones = [];
-    buffer.parts.forEach(p => {
-        allZones = allZones.concat(p.zonesList || []);
-    });
-    // Sort zones to ensure correct ordering (1 to 47)
-    allZones.sort((a, b) => a.zone - b.zone);
-    
-    const merged = { ...buffer.parts[0] };
-    merged.event = "Zone Status Response";
-    merged.zonesList = allZones;
-    merged.raw = buffer.rawMessages.join(" || ");
-    
-    // Push to eventLog
-    eventLog.unshift({
-      ...merged,
-      crcValid: crcOK,
-      receivedAt: new Date().toISOString()
-    });
-    if (eventLog.length > MAX_LOG) eventLog.pop();
-    
-    // Process DB update
-    await processRpsDb(merged, account, remoteIp);
-    console.log(`✅ [SECURICO] Buffered RPS merged and logged for Panel #${account} with ${allZones.length} zones.`);
+  let allZones = [];
+  buffer.parts.forEach(p => {
+    allZones = allZones.concat(p.zonesList || []);
+  });
+  // Sort zones to ensure correct ordering (1 to 47)
+  allZones.sort((a, b) => a.zone - b.zone);
+
+  const merged = { ...buffer.parts[0] };
+  merged.event = "Zone Status Response";
+  merged.zonesList = allZones;
+  merged.raw = buffer.rawMessages.join(" || ");
+
+  // Push to eventLog
+  eventLog.unshift({
+    ...merged,
+    crcValid: crcOK,
+    receivedAt: new Date().toISOString()
+  });
+  if (eventLog.length > MAX_LOG) eventLog.pop();
+
+  // Process DB update
+  await processRpsDb(merged, account, remoteIp);
+  console.log(`✅ [SECURICO] Buffered RPS merged and logged for Panel #${account} with ${allZones.length} zones.`);
 }
 
 function initiatePanelConnection(panelId, ip) {

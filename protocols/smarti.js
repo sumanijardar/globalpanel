@@ -62,17 +62,36 @@ function buildACK(header) {
   return `\n${crc}${len}${body}\r`;
 }
 
-// Commands mapping based on VcopIP (SMART -I) protocol
+// Commands mapping based on 8IO ATM G1 32 Zone protocol
 const COMMAND_MAP = {
-  'ARM': '[N|005|A]',
-  'DISARM': '[N|005|D]',
-  'STAY': '[N|005|S]',
+  'ARM': 'NCF001',       // Full System Arm
+  'DISARM': 'NOF001',    // Full System Disarm
+  'STAY': 'NCP001',      // System Partial Arm
+  
+  // Siren Control (Output 2)
   'SIREN_ON': '[N|002|1]',
   'SIREN_OFF': '[N|002|0]',
+  'HOOTER': '[N|002|1]', 
+  
+  // AC Control (Output 5 for AC1, Output 6 for AC2)
+  'AC1_ON': '[N|005|1]',
+  'AC1_OFF': '[N|005|0]',
+  'AC1': '[N|005|1]',
+  'AC2_ON': '[N|006|1]',
+  'AC2_OFF': '[N|006|0]',
+  'AC2': '[N|006|1]',
+  
+  // Signage Light Control (Output 8)
+  'LIGHT_ON': '[N|008|1]',
+  'LIGHT_OFF': '[N|008|0]',
+  'LIGHT1_ON': '[N|008|1]',
+  'LIGHT1_OFF': '[N|008|0]',
+  
+  // Reset and Status Commands
   'RESET': '[N|000]',
-  'STATUS': 'NYY040', // Query zone status
-  'RELAY_ON': 'NRC',  // Generates [#account|NRC041]
-  'RELAY_OFF': 'NRO'  // Generates [#account|NRO041]
+  'STATUS': 'NYY040',    // Query zone status (if supported)
+  'RELAY_ON': 'NZH',     // New Output ON prefix (NZH + zone)
+  'RELAY_OFF': 'NZL'     // New Output OFF prefix (NZL + zone)
 };
 
 function buildSIACommand(commandType, account, zone = "000", receiver = "R000001", line = "L000000") {
