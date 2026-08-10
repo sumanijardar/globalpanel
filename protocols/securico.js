@@ -276,13 +276,17 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         buffer.parts.push(decoded);
         buffer.rawMessages.push(message);
 
-        // Sequential triggering of the next parts via Queue (handles panels that disconnect after replying)
+        // Sequential triggering of the next parts via Queue with delay (handles panels that disconnect after replying)
         if (decoded.event.includes("Part 0")) {
-          console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_2 for Panel #${currentAccount}...`);
-          queueCommand(currentAccount, 'READ_PORT_STATUS_2', "000");
+          setTimeout(() => {
+            console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_2 for Panel #${currentAccount}...`);
+            queueCommand(currentAccount, 'READ_PORT_STATUS_2', "000");
+          }, 500);
         } else if (decoded.event.includes("Part 1")) {
-          console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_3 for Panel #${currentAccount}...`);
-          queueCommand(currentAccount, 'READ_PORT_STATUS_3', "000");
+          setTimeout(() => {
+            console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_3 for Panel #${currentAccount}...`);
+            queueCommand(currentAccount, 'READ_PORT_STATUS_3', "000");
+          }, 500);
         }
 
         if (buffer.parts.length >= 3) {
