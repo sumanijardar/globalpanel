@@ -279,16 +279,30 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         // Sequential triggering of the next parts via Queue with delay (handles panels that disconnect after replying)
         if (decoded.event.includes("Part 0")) {
           setTimeout(() => {
-            console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_2 for Panel #${currentAccount}...`);
-            if (!socket.destroyed) socket.destroy(); // Force new connection for panels that hang
-            queueCommand(currentAccount, 'READ_PORT_STATUS_2', "000");
+            if (!socket.destroyed) {
+              console.log(`\n⚠️ [SECURICO] Forcing graceful disconnect for Panel #${currentAccount} to prepare for next part...`);
+              socket.end();
+              setTimeout(() => { if (!socket.destroyed) socket.destroy(); }, 1000);
+            }
           }, 500);
+
+          setTimeout(() => {
+            console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_2 for Panel #${currentAccount}...`);
+            queueCommand(currentAccount, 'READ_PORT_STATUS_2', "000");
+          }, 4000);
         } else if (decoded.event.includes("Part 1")) {
           setTimeout(() => {
-            console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_3 for Panel #${currentAccount}...`);
-            if (!socket.destroyed) socket.destroy(); // Force new connection for panels that hang
-            queueCommand(currentAccount, 'READ_PORT_STATUS_3', "000");
+            if (!socket.destroyed) {
+              console.log(`\n⚠️ [SECURICO] Forcing graceful disconnect for Panel #${currentAccount} to prepare for next part...`);
+              socket.end();
+              setTimeout(() => { if (!socket.destroyed) socket.destroy(); }, 1000);
+            }
           }, 500);
+
+          setTimeout(() => {
+            console.log(`\n🔄 [SECURICO] Queuing READ_PORT_STATUS_3 for Panel #${currentAccount}...`);
+            queueCommand(currentAccount, 'READ_PORT_STATUS_3', "000");
+          }, 4000);
         }
 
         if (buffer.parts.length >= 3) {
