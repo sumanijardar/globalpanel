@@ -189,7 +189,7 @@ function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
 function handleSocketEvents(socket, remoteIp, initialAccount = null) {
   let currentAccount = initialAccount;
   socket.setKeepAlive(true, 30000);
-  socket.setTimeout(180000);
+  socket.setTimeout(60000); // 1 minute timeout
 
   socket.on("timeout", () => socket.destroy());
   socket.on("data", async (data) => {
@@ -248,14 +248,10 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         }
       }
       if (!commandSentFromQueue && !message.includes('"ACK"')) {
-        // Do not send ACK for RPS_RES (Zone Status Responses) as they are replies to our queries
-        // and sending an ACK might cause the panel to drop the connection due to unexpected data.
-        if (decoded && decoded.code !== "RPS_RES") {
-          const ackMsg = buildACK(header);
+        const ackMsg = buildACK(header);
+        if (ackMsg) {
           socket.write(ackMsg);
           console.log(`📤 [SECURICO] ACK Sent: ${ackMsg.trim()}`);
-        } else {
-          console.log(`ℹ️ [SECURICO] Skipped ACK for response type: ${decoded.code}`);
         }
       }
     }
@@ -280,15 +276,23 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         buffer.parts.push(decoded);
         buffer.rawMessages.push(message);
 
-        // Sequential triggering of the next parts
+        // Sequential triggering of the next parts with 500ms delay to allow ACK to process
         if (decoded.event.includes("Part 0")) {
-          const cmd2 = buildSIACommand('READ_PORT_STATUS_2', currentAccount, "000");
-          if (cmd2 && !socket.destroyed) socket.write(cmd2);
-          console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_2 in sequence`);
+          setTimeout(() => {
+            const cmd2 = buildSIACommand('READ_PORT_STATUS_2', currentAccount, "000");
+            if (cmd2 && !socket.destroyed) {
+              socket.write(cmd2);
+              console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_2 in sequence`);
+            }
+          }, 500);
         } else if (decoded.event.includes("Part 1")) {
-          const cmd3 = buildSIACommand('READ_PORT_STATUS_3', currentAccount, "000");
-          if (cmd3 && !socket.destroyed) socket.write(cmd3);
-          console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_3 in sequence`);
+          setTimeout(() => {
+            const cmd3 = buildSIACommand('READ_PORT_STATUS_3', currentAccount, "000");
+            if (cmd3 && !socket.destroyed) {
+              socket.write(cmd3);
+              console.log(`📤 [SECURICO] Auto-Sent READ_PORT_STATUS_3 in sequence`);
+            }
+          }, 500);
         }
 
         if (buffer.parts.length >= 3) {
@@ -531,12 +535,12 @@ function initiatePanelConnection(panelId, ip) {
   });
 
   socket.on("close", () => {
-    console.log(`⚠️ [SECURICO] Connection closed for Panel #${panelId} (${ip}). Retrying in 3 minutes...`);
+    console.log(`⚠️ [SECURICO] Connection closed for Panel #${panelId} (${ip}). Retrying in 1 minute...`);
     setTimeout(() => {
       if (!activeSockets.has(panelId) || activeSockets.get(panelId).destroyed) {
         initiatePanelConnection(panelId, ip);
       }
-    }, 180000); // 3 minutes
+    }, 60000); // 1 minute
   });
 }
 
