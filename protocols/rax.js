@@ -296,7 +296,7 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         }
 
         decoded.channelList.forEach(c => {
-          if (c.channel >= 1 && c.channel <= 10) {
+          if (c.channel >= 1 && c.channel <= 20) {
             const colName = `relay${c.channel}`;
             columns.push(colName);
             placeholders.push('?');
