@@ -347,6 +347,8 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
           console.log(`✅ [SECURICO] Relay status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
         } else {
           const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+          console.log(`[DEBUG] Query:`, insertQuery);
+          console.log(`[DEBUG] Values length:`, values.length, values);
           await pool.query(insertQuery, values);
           console.log(`✅ [SECURICO] Relay status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
         }
@@ -419,14 +421,18 @@ async function processRpsDb(decoded, currentAccount, remoteIp) {
     const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     let panelName = '';
+    let siteId = 0;
     try {
-      const [siteRows] = await pool.query("SELECT Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
-      if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
+      const [siteRows] = await pool.query("SELECT SN, Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
+      if (siteRows && siteRows.length > 0) {
+        panelName = siteRows[0].Panel_Make || '';
+        siteId = siteRows[0].SN || 0;
+      }
     } catch (err) { /* ignore */ }
 
-    let columns = ['panelid', 'udate', 'ip'];
-    let placeholders = ['?', '?', '?'];
-    let values = [currentAccount, receivedtime, remoteIp || ''];
+    let columns = ['panelid', 'udate', 'ip', 'site_id'];
+    let placeholders = ['?', '?', '?', '?'];
+    let values = [currentAccount, receivedtime, remoteIp || '', siteId];
     let setQueryArr = ['udate = ?', 'ip = ?'];
     let setValues = [receivedtime, remoteIp || ''];
 
@@ -455,9 +461,11 @@ async function processRpsDb(decoded, currentAccount, remoteIp) {
       await pool.query(updateQuery, [...setValues, currentAccount]);
       console.log(`✅ [SECURICO] Zone status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
     } else {
-      const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
-      await pool.query(insertQuery, values);
-      console.log(`✅ [SECURICO] Zone status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
+        const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+        console.log(`[DEBUG] Query:`, insertQuery);
+        console.log(`[DEBUG] Values length:`, values.length, values);
+        await pool.query(insertQuery, values);
+        console.log(`✅ [SECURICO] Zone status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
     }
   } catch (dbErr) {
     console.error(`❌ [SECURICO] DB Error saving zone status to panel_health:`, dbErr.message);
