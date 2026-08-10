@@ -315,9 +315,9 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
           }
         } catch (err) { /* ignore */ }
 
-        let columns = ['panelid', 'udate', 'ip', 'site_id'];
-        let placeholders = ['?', '?', '?', '?'];
-        let values = [currentAccount, receivedtime, remoteIp || '', siteId];
+        let columns = ['panelid', 'udate', 'ip'];
+        let placeholders = ['?', '?', '?'];
+        let values = [currentAccount, receivedtime, remoteIp || ''];
         let setQueryArr = ['udate = ?', 'ip = ?'];
         let setValues = [receivedtime, remoteIp || ''];
 
@@ -430,9 +430,9 @@ async function processRpsDb(decoded, currentAccount, remoteIp) {
       }
     } catch (err) { /* ignore */ }
 
-    let columns = ['panelid', 'udate', 'ip', 'site_id'];
-    let placeholders = ['?', '?', '?', '?'];
-    let values = [currentAccount, receivedtime, remoteIp || '', siteId];
+    let columns = ['panelid', 'udate', 'ip'];
+    let placeholders = ['?', '?', '?'];
+    let values = [currentAccount, receivedtime, remoteIp || ''];
     let setQueryArr = ['udate = ?', 'ip = ?'];
     let setValues = [receivedtime, remoteIp || ''];
 
