@@ -244,6 +244,105 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         try { await pool.query(`INSERT INTO ${targetTable} (panelid, seqno, zone, alarm, createtime, alerttype, status, priority, level) VALUES (?, ?, ?, ?, ?, ?, 'O', ?, ?)`, [...baseValues, priority, level]); } catch (err) {}
       }
     }
+    if (decoded.code === "RPS_RES" && decoded.zonesList) {
+      try {
+        const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+        let panelName = '';
+        try {
+          const [siteRows] = await pool.query("SELECT Panel_Make FROM sites_zicom WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
+          if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
+        } catch (err) { /* ignore */ }
+
+        let columns = ['panelid', 'udate', 'ip'];
+        let placeholders = ['?', '?', '?'];
+        let values = [currentAccount, receivedtime, remoteIp || ''];
+        let setQueryArr = ['udate = ?', 'ip = ?'];
+        let setValues = [receivedtime, remoteIp || ''];
+
+        if (panelName) {
+          columns.push('panelName');
+          placeholders.push('?');
+          values.push(panelName);
+          setQueryArr.push('panelName = ?');
+          setValues.push(panelName);
+        }
+
+        decoded.zonesList.forEach(z => {
+          if (z.zone >= 1 && z.zone <= 60) {
+            const colName = `zon${z.zone}`;
+            columns.push(colName);
+            placeholders.push('?');
+            values.push(z.status);
+            setQueryArr.push(`${colName} = ?`);
+            setValues.push(z.status);
+          }
+        });
+
+        const [rows] = await pool.query("SELECT id FROM panel_health WHERE panelid = ? LIMIT 1", [currentAccount]);
+        if (rows && rows.length > 0) {
+          const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
+          await pool.query(updateQuery, [...setValues, currentAccount]);
+          console.log(`✅ [RASS] Zone status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
+        } else {
+          const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+          await pool.query(insertQuery, values);
+          console.log(`✅ [RASS] Zone status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
+        }
+      } catch (dbErr) {
+        console.error(`❌ [RASS] DB Error saving zone status to panel_health:`, dbErr.message);
+      }
+    }
+
+    if (decoded.code === "RCS_RES" && decoded.channelList) {
+      try {
+        const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+        let panelName = '';
+        try {
+          const [siteRows] = await pool.query("SELECT Panel_Make FROM sites_zicom WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
+          if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
+        } catch (err) { /* ignore */ }
+
+        let columns = ['panelid', 'udate', 'ip'];
+        let placeholders = ['?', '?', '?'];
+        let values = [currentAccount, receivedtime, remoteIp || ''];
+        let setQueryArr = ['udate = ?', 'ip = ?'];
+        let setValues = [receivedtime, remoteIp || ''];
+
+        if (panelName) {
+          columns.push('panelName');
+          placeholders.push('?');
+          values.push(panelName);
+          setQueryArr.push('panelName = ?');
+          setValues.push(panelName);
+        }
+
+        decoded.channelList.forEach(c => {
+          if (c.channel >= 1 && c.channel <= 20) {
+            const colName = `relay${c.channel}`;
+            columns.push(colName);
+            placeholders.push('?');
+            values.push(c.status);
+            setQueryArr.push(`${colName} = ?`);
+            setValues.push(c.status);
+          }
+        });
+
+        const [rows] = await pool.query("SELECT id FROM panel_health WHERE panelid = ? LIMIT 1", [currentAccount]);
+        if (rows && rows.length > 0) {
+          const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
+          await pool.query(updateQuery, [...setValues, currentAccount]);
+          console.log(`✅ [RASS] Channel status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
+        } else {
+          const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+          await pool.query(insertQuery, values);
+          console.log(`✅ [RASS] Channel status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
+        }
+      } catch (dbErr) {
+        console.error(`❌ [RASS] DB Error saving channel status to panel_health:`, dbErr.message);
+      }
+    }
 
     eventLog.unshift({ ...decoded, raw: message, receivedAt: new Date().toISOString() });
     if (eventLog.length > MAX_LOG) eventLog.pop();
@@ -316,8 +415,8 @@ async function connectToAllPanels() {
 }
 
 function startServer() {
-  connectToAllPanels();
-  setInterval(connectToAllPanels, 180000); // 3 minutes
+  // connectToAllPanels();
+  // setInterval(connectToAllPanels, 180000); // 3 minutes
   
   const tcpServer = net.createServer((socket) => {
     const remoteIp = socket.remoteAddress ? socket.remoteAddress.replace(/^.*:/, '').trim() : null;
@@ -369,6 +468,19 @@ function queueCommand(account, command, zone, maxWait = 60000) {
           }
         }
       });
+      // Attempt on-demand connection if not already connected
+      pool.query("SELECT dvrip FROM sites_zicom WHERE NewPanelID = ? AND dvrip IS NOT NULL AND dvrip != '' LIMIT 1", [account])
+        .then(([rows]) => {
+          if (rows && rows.length > 0) {
+            const ip = String(rows[0].dvrip).trim();
+            console.log(`\n🔄 [RASS] On-Demand connection triggered for Panel #${account} (IP: ${ip})`);
+            initiatePanelConnection(account, ip);
+          } else {
+            console.log(`\n⚠️ [RASS] Cannot connect on-demand to Panel #${account}: No valid IP found in DB.`);
+          }
+        })
+        .catch(err => console.error(`\n❌ [RASS] DB Error while fetching IP for on-demand connection:`, err.message));
+
       setTimeout(() => {
         if (!done) {
           done = true;
