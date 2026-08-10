@@ -301,6 +301,58 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         // Full 47 char response
         await processRpsDb(decoded, currentAccount, remoteIp);
       }
+    } else if (decoded.code === "RLS_RES" && decoded.relayList) {
+      try {
+        const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+        let panelName = '';
+        let siteId = 0;
+        try {
+          const [siteRows] = await pool.query("SELECT SN, Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
+          if (siteRows && siteRows.length > 0) {
+            panelName = siteRows[0].Panel_Make || '';
+            siteId = siteRows[0].SN || 0;
+          }
+        } catch (err) { /* ignore */ }
+
+        let columns = ['panelid', 'udate', 'ip', 'site_id'];
+        let placeholders = ['?', '?', '?', '?'];
+        let values = [currentAccount, receivedtime, remoteIp || '', siteId];
+        let setQueryArr = ['udate = ?', 'ip = ?'];
+        let setValues = [receivedtime, remoteIp || ''];
+
+        if (panelName) {
+          columns.push('panelName');
+          placeholders.push('?');
+          values.push(panelName);
+          setQueryArr.push('panelName = ?');
+          setValues.push(panelName);
+        }
+
+        decoded.relayList.forEach(r => {
+          if (r.relayId >= 1 && r.relayId <= 20) {
+            const colName = `relay${r.relayId}`;
+            columns.push(colName);
+            placeholders.push('?');
+            values.push(r.status);
+            setQueryArr.push(`${colName} = ?`);
+            setValues.push(r.status);
+          }
+        });
+
+        const [rows] = await pool.query("SELECT id FROM panel_health WHERE panelid = ? LIMIT 1", [currentAccount]);
+        if (rows && rows.length > 0) {
+          const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
+          await pool.query(updateQuery, [...setValues, currentAccount]);
+          console.log(`✅ [SECURICO] Relay status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
+        } else {
+          const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+          await pool.query(insertQuery, values);
+          console.log(`✅ [SECURICO] Relay status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
+        }
+      } catch (dbErr) {
+        console.error(`❌ [SECURICO] DB Error saving relay status to panel_health:`, dbErr.message);
+      }
     } else if (decoded.code) {
       const seqno = header ? header.sequence : '0000';
       const alarmCode = decoded.code;
