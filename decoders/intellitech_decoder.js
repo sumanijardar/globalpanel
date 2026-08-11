@@ -42,10 +42,10 @@ function decodeIntellitech(item, deviceId, dataDateStr) {
     // Apply mapping
     if (idStr.startsWith("4")) {
         // Zones
-        if (statusVal === 1) {
+        if (statusVal === 5) {
             result.code = "BA";
             result.event = "Perimeter / Interior alarm";
-        } else if (statusVal === 0) {
+        } else if (statusVal === 6) {
             result.code = "BR";
             result.event = "Zone recovery (Delay/Perimeter/Interior)";
         } else {
@@ -54,10 +54,10 @@ function decodeIntellitech(item, deviceId, dataDateStr) {
         }
     } else if (idStr.startsWith("3")) {
         // Sirens
-        if (statusVal === 1) {
+        if (statusVal === 5) {
             result.code = "YA";
             result.event = "Siren fault";
-        } else if (statusVal === 0 || statusVal === 4) {
+        } else if (statusVal === 6) {
             result.code = "YH";
             result.event = "Siren restored";
         } else {
@@ -66,10 +66,10 @@ function decodeIntellitech(item, deviceId, dataDateStr) {
         }
     } else if (idStr.startsWith("2")) {
         // Relays
-        if (statusVal === 1) {
+        if (statusVal === 5) {
             result.code = "RY"; // Custom code for Relay ON
             result.event = "Relay ON";
-        } else if (statusVal === 0) {
+        } else if (statusVal === 6) {
             result.code = "RX"; // Custom code for Relay OFF
             result.event = "Relay OFF";
         } else {

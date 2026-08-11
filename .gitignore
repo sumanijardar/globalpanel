@@ -37,3 +37,7 @@ Protocol doc - Copy.xlsx
 .DS_Store
 .vscode/
 Thumbs.db
+
+# Temporary extraction files
+temp_docx_extract/
+temp.zip
