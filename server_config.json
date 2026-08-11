@@ -3,5 +3,6 @@
   "RUN_RASS": false,
   "RUN_SMARTI": true,
   "RUN_RAX": true,
-  "RUN_SECURICO": true
+  "RUN_SECURICO": true,
+  "RUN_INTELLITECH": true
 }

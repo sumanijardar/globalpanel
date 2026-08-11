@@ -8,11 +8,12 @@ const rassProtocol = require("./protocols/rass");
 const smartiProtocol = require("./protocols/smarti");
 const raxProtocol = require("./protocols/rax");
 const securicoProtocol = require("./protocols/securico");
+const intellitechProtocol = require("./protocols/intellitech");
 const fs = require("fs");
 const path = require("path");
 
 // Load server configuration for enabling/disabling protocols
-let serverConfig = { RUN_MAYUR: true, RUN_RASS: true, RUN_SMARTI: true, RUN_RAX: true, RUN_SECURICO: true };
+let serverConfig = { RUN_MAYUR: true, RUN_RASS: true, RUN_SMARTI: true, RUN_RAX: true, RUN_SECURICO: true, RUN_INTELLITECH: true };
 const configPath = path.join(process.cwd(), 'server_config.json');
 
 try {
@@ -65,6 +66,13 @@ if (serverConfig.RUN_SECURICO) {
   console.log("⏸️ SECURICO Protocol is DISABLED (Check server_config.json)");
 }
 
+if (serverConfig.RUN_INTELLITECH) {
+  console.log("✅ Starting INTELLITECH Protocol");
+  intellitechProtocol.startServer();
+} else {
+  console.log("⏸️ INTELLITECH Protocol is DISABLED (Check server_config.json)");
+}
+
 // ============================================================================
 // 🌐 UNIVERSAL HTTP API SERVER
 // ============================================================================
@@ -109,6 +117,7 @@ const apiServer = http.createServer(async (req, res) => {
         const smartiDevices = smartiProtocol.getStatus().devices;
         const raxDevices = raxProtocol.getStatus().devices;
         const securicoDevices = securicoProtocol.getStatus().devices;
+        const intellitechDevices = intellitechProtocol.getStatus().devices;
 
         if (mayurDevices.find(d => d.account === account && d.connected) || mayurProtocol.getEvents(account, 1).count > 0) {
           panelMake = 'MAYUR';
@@ -120,6 +129,8 @@ const apiServer = http.createServer(async (req, res) => {
           panelMake = 'RAX';
         } else if (securicoDevices.find(d => d.account === account && d.connected) || securicoProtocol.getEvents(account, 1).count > 0) {
           panelMake = 'SECURICO';
+        } else if (intellitechDevices.find(d => d.account === account && d.connected) || intellitechProtocol.getEvents(account, 1).count > 0) {
+          panelMake = 'INTELLITECH';
         }
       }
 
@@ -133,6 +144,7 @@ const apiServer = http.createServer(async (req, res) => {
       else if (panelMake.includes('SMART') || panelMake.includes('SMAERT')) handler = smartiProtocol;
       else if (panelMake === 'RAX' || panelMake === 'REX') handler = raxProtocol;
       else if (panelMake.includes('SECURICO')) handler = securicoProtocol;
+      else if (panelMake.includes('INTELLITECH') || panelMake.includes('GOLDBOX')) handler = intellitechProtocol;
 
       if (!handler) {
         res.writeHead(400);
@@ -206,8 +218,9 @@ const apiServer = http.createServer(async (req, res) => {
       const smartiEvts = smartiProtocol.getEvents(null, last).events;
       const raxEvts = raxProtocol.getEvents(null, last).events;
       const securicoEvts = securicoProtocol.getEvents(null, last).events;
+      const intellitechEvts = intellitechProtocol.getEvents(null, last).events;
       res.writeHead(200);
-      res.end(JSON.stringify({ success: true, count: mayurEvts.length + rassEvts.length + smartiEvts.length + raxEvts.length + securicoEvts.length, mayurEvents: mayurEvts, rassEvents: rassEvts, smartiEvents: smartiEvts, raxEvents: raxEvts, securicoEvents: securicoEvts }));
+      res.end(JSON.stringify({ success: true, count: mayurEvts.length + rassEvts.length + smartiEvts.length + raxEvts.length + securicoEvts.length + intellitechEvts.length, mayurEvents: mayurEvts, rassEvents: rassEvts, smartiEvents: smartiEvts, raxEvents: raxEvts, securicoEvents: securicoEvts, intellitechEvents: intellitechEvts }));
     }
   }
 
@@ -218,8 +231,9 @@ const apiServer = http.createServer(async (req, res) => {
     const smartiStatus = smartiProtocol.getStatus().devices;
     const raxStatus = raxProtocol.getStatus().devices;
     const securicoStatus = securicoProtocol.getStatus().devices;
+    const intellitechStatus = intellitechProtocol.getStatus().devices;
     res.writeHead(200);
-    res.end(JSON.stringify({ success: true, mayur: mayurStatus, rass: rassStatus, smarti: smartiStatus, rax: raxStatus, securico: securicoStatus }));
+    res.end(JSON.stringify({ success: true, mayur: mayurStatus, rass: rassStatus, smarti: smartiStatus, rax: raxStatus, securico: securicoStatus, intellitech: intellitechStatus }));
   }
 
   else {

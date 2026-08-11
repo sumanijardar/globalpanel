@@ -16,6 +16,7 @@ xls_content.txt
 server_config.json
 *.exe
 *.csv
+Goldbox Configuration Settings.docx
 
 # Output and dump files
 *.log
