@@ -186,8 +186,10 @@ function decodeSIA(message) {
                     result.armStatus = armDesc;
                 } else if (cmdType === '005' && secParts.length >= 4) {
                     const outNo = secParts[2];
-                    const outSt = secParts[3] === '1' ? 'ON' : 'OFF';
-                    result.event = `Read Command Response: Output ${outNo} Status - ${outSt}`;
+                    const rawVal = secParts[3];
+                    const outSt = (rawVal === '1' || rawVal === 'ON') ? '1' : '0';
+                    const outDesc = outSt === '1' ? 'ON' : 'OFF';
+                    result.event = `Read Command Response: Output ${outNo} Status - ${outDesc}`;
                     result.outputNo = outNo;
                     result.outputState = outSt;
                 } else if (cmdType === '008' && secParts.length >= 3) {

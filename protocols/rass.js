@@ -212,7 +212,7 @@ function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
         if (socket && !socket.destroyed) {
           sendSingleCommand(socket, 'READ_RELAY_STATUS', accountNo, String(i));
         }
-      }, (i - 1) * 600);
+      }, (i - 1) * 1000);
     }
     return true;
   }
@@ -374,7 +374,8 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
             const ch = parseInt(c.channel || c.relayId || c.output, 10);
             if (ch >= 1 && ch <= 20) {
               const colName = `relay${ch}`;
-              const stVal = String(c.status !== undefined ? c.status : c.state);
+              let stVal = c.status !== undefined ? c.status : c.state;
+              stVal = (stVal === 'ON' || stVal === '1' || stVal === 1) ? '1' : '0';
               columns.push(colName);
               placeholders.push('?');
               values.push(stVal);
@@ -386,7 +387,8 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
           const ch = parseInt(decoded.outputNo, 10);
           if (ch >= 1 && ch <= 20) {
             const colName = `relay${ch}`;
-            const stVal = String(decoded.outputState);
+            let stVal = decoded.outputState;
+            stVal = (stVal === 'ON' || stVal === '1' || stVal === 1) ? '1' : '0';
             columns.push(colName);
             placeholders.push('?');
             values.push(stVal);
@@ -512,7 +514,7 @@ function queueCommand(account, command, zone, maxWait = 60000) {
   return new Promise((resolve) => {
     const cmdUpper = (command || '').toUpperCase();
     const isAllRelays = (cmdUpper === 'READ_RELAY_STATUS' || cmdUpper === 'READ_OUTPUT_STATUS' || cmdUpper === 'READ_ALL_RELAYS') && (!Number(zone) || Number(zone) <= 0);
-    const waitTime = isAllRelays ? 6000 : 3000;
+    const waitTime = isAllRelays ? 9500 : 3000;
 
     const sock = activeSockets.get(account);
     if (sock && !sock.destroyed) {
