@@ -159,7 +159,7 @@ function getRASSCommandContent(commandName, zone = "000") {
     if (zone === '000' || zone === '0' || !zone) return 'NYY040';
     return `[N|003|${zoneStr}|R]`;
   }
-  if (cmd === 'READ_RELAY_STATUS' || cmd === 'READ_OUTPUT_STATUS') {
+  if (cmd === 'READ_RELAY_STATUS' || cmd === 'READ_OUTPUT_STATUS' || cmd === 'READ_ALL_RELAYS') {
     const outNum = Number(zone);
     if (outNum > 0) return `[N|005|${String(outNum).padStart(2, '0')}|R]`;
     return `[N|005|01|R]`;
@@ -180,8 +180,8 @@ function getRASSMetadata(account) {
   return null;
 }
 
-function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
-  if (socket.destroyed) return false;
+function sendSingleCommand(socket, commandType, accountNo, zone = "000") {
+  if (!socket || socket.destroyed) return false;
 
   const meta = getRASSMetadata(accountNo);
   const clientId = meta ? meta.clientId : "011745";
@@ -193,9 +193,48 @@ function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
 
   const cmd = buildRASSControlCommand(seq, accountNo, clientId, rassContent);
   socket.write(cmd);
-  console.log(`\n📤 [RASS] Command Sent [${commandType}]:`);
+  console.log(`\n📤 [RASS] Command Sent [${commandType} - Zone/Output: ${zone}]:`);
   console.log(`   Raw Format: ${cmd.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`);
   return true;
+}
+
+function sendCommandToPanel(socket, commandType, accountNo, zone = "000") {
+  if (!socket || socket.destroyed) return false;
+
+  const cmd = commandType.toUpperCase();
+  const outNum = Number(zone);
+
+  // If READ_RELAY_STATUS / READ_OUTPUT_STATUS / READ_ALL_RELAYS with zone 0 / 000, trigger all 8 relays sequentially
+  if ((cmd === 'READ_RELAY_STATUS' || cmd === 'READ_OUTPUT_STATUS' || cmd === 'READ_ALL_RELAYS') && (!outNum || outNum <= 0)) {
+    console.log(`\n🔄 [RASS] Reading all relay/output statuses (Relay 01 to 08) sequentially for Panel #${accountNo}...`);
+    for (let i = 1; i <= 8; i++) {
+      setTimeout(() => {
+        if (socket && !socket.destroyed) {
+          sendSingleCommand(socket, 'READ_RELAY_STATUS', accountNo, String(i));
+        }
+      }, (i - 1) * 600);
+    }
+    return true;
+  }
+
+  return sendSingleCommand(socket, commandType, accountNo, zone);
+}
+
+async function getPanelMake(currentAccount, remoteIp = null) {
+  let panelName = 'RASS';
+  try {
+    const rawAcct = String(currentAccount || '').trim();
+    const strippedAcct = rawAcct.replace(/^0+/, '');
+    const paddedAcct = rawAcct.padStart(6, '0');
+    const [siteRows] = await pool.query(
+      "SELECT Panel_Make FROM sites WHERE NewPanelID = ? OR NewPanelID = ? OR NewPanelID = ? OR PanelID = ? OR PanelID = ? OR PanelID = ? OR dvrip = ? LIMIT 1",
+      [rawAcct, strippedAcct, paddedAcct, rawAcct, strippedAcct, paddedAcct, remoteIp || '']
+    );
+    if (siteRows && siteRows.length > 0 && siteRows[0].Panel_Make) {
+      panelName = siteRows[0].Panel_Make;
+    }
+  } catch (err) { /* ignore */ }
+  return panelName;
 }
 
 function handleSocketEvents(socket, remoteIp, initialAccount = null) {
@@ -273,32 +312,19 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
     if (zoneItems && Array.isArray(zoneItems) && zoneItems.length > 0 && currentAccount) {
       try {
         const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const panelName = await getPanelMake(currentAccount, remoteIp);
 
-        let panelName = '';
-        try {
-          const [siteRows] = await pool.query("SELECT Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
-          if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
-        } catch (err) { /* ignore */ }
-
-        let columns = ['panelid', 'udate', 'ip'];
-        let placeholders = ['?', '?', '?'];
-        let values = [currentAccount, receivedtime, remoteIp || ''];
-        let setQueryArr = ['udate = ?', 'ip = ?'];
-        let setValues = [receivedtime, remoteIp || ''];
-
-        if (panelName) {
-          columns.push('panelName');
-          placeholders.push('?');
-          values.push(panelName);
-          setQueryArr.push('panelName = ?');
-          setValues.push(panelName);
-        }
+        let columns = ['panelid', 'udate', 'ip', 'panelName'];
+        let placeholders = ['?', '?', '?', '?'];
+        let values = [currentAccount, receivedtime, remoteIp || '', panelName];
+        let setQueryArr = ['udate = ?', 'ip = ?', 'panelName = ?'];
+        let setValues = [receivedtime, remoteIp || '', panelName];
 
         zoneItems.forEach(z => {
           const zNum = parseInt(z.zone, 10);
           if (zNum >= 1 && zNum <= 60) {
             const colName = `zon${zNum}`;
-            const stVal = z.status || z.description || 'U';
+            const stVal = z.description || z.statusDescription || z.status || 'Uninstalled';
             columns.push(colName);
             placeholders.push('?');
             values.push(stVal);
@@ -335,26 +361,13 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
     if (((relayItems && Array.isArray(relayItems) && relayItems.length > 0) || (decoded.outputNo !== undefined && decoded.outputNo !== null)) && currentAccount) {
       try {
         const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const panelName = await getPanelMake(currentAccount, remoteIp);
 
-        let panelName = '';
-        try {
-          const [siteRows] = await pool.query("SELECT Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
-          if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
-        } catch (err) { /* ignore */ }
-
-        let columns = ['panelid', 'udate', 'ip'];
-        let placeholders = ['?', '?', '?'];
-        let values = [currentAccount, receivedtime, remoteIp || ''];
-        let setQueryArr = ['udate = ?', 'ip = ?'];
-        let setValues = [receivedtime, remoteIp || ''];
-
-        if (panelName) {
-          columns.push('panelName');
-          placeholders.push('?');
-          values.push(panelName);
-          setQueryArr.push('panelName = ?');
-          setValues.push(panelName);
-        }
+        let columns = ['panelid', 'udate', 'ip', 'panelName'];
+        let placeholders = ['?', '?', '?', '?'];
+        let values = [currentAccount, receivedtime, remoteIp || '', panelName];
+        let setQueryArr = ['udate = ?', 'ip = ?', 'panelName = ?'];
+        let setValues = [receivedtime, remoteIp || '', panelName];
 
         if (relayItems && Array.isArray(relayItems)) {
           relayItems.forEach(c => {
@@ -497,6 +510,10 @@ function checkConnection(account, maxWait = 60000) {
 
 function queueCommand(account, command, zone, maxWait = 60000) {
   return new Promise((resolve) => {
+    const cmdUpper = (command || '').toUpperCase();
+    const isAllRelays = (cmdUpper === 'READ_RELAY_STATUS' || cmdUpper === 'READ_OUTPUT_STATUS' || cmdUpper === 'READ_ALL_RELAYS') && (!Number(zone) || Number(zone) <= 0);
+    const waitTime = isAllRelays ? 6000 : 3000;
+
     const sock = activeSockets.get(account);
     if (sock && !sock.destroyed) {
       const timeBefore = new Date().toISOString();
@@ -504,7 +521,7 @@ function queueCommand(account, command, zone, maxWait = 60000) {
       setTimeout(() => {
         const newEvents = eventLog.filter(e => e.account === account && e.receivedAt > timeBefore);
         resolve({ success, status: "sent_immediately", panelResponse: newEvents });
-      }, 3000);
+      }, waitTime);
     } else {
       if (!commandQueue.has(account)) commandQueue.set(account, []);
       const timeBefore = new Date().toISOString();
@@ -517,7 +534,7 @@ function queueCommand(account, command, zone, maxWait = 60000) {
             setTimeout(() => {
               const newEvents = eventLog.filter(e => e.account === account && e.receivedAt > timeBefore);
               resolve({ success: res.sent, status: "sent_from_queue", panelResponse: newEvents });
-            }, 3000);
+            }, waitTime);
           }
         }
       });
