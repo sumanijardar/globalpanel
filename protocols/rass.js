@@ -33,11 +33,11 @@ async function getOrRegisterRASS(macId, remoteIp = null) {
 
   if (remoteIp) {
     try {
-      const [rows] = await pool.query("SELECT NewPanelID FROM sites_zicom WHERE dvrip = ? LIMIT 1", [remoteIp]);
+      const [rows] = await pool.query("SELECT NewPanelID FROM sites WHERE dvrip = ? LIMIT 1", [remoteIp]);
       if (rows && rows.length > 0 && rows[0].NewPanelID) {
         panelId = String(rows[0].NewPanelID).trim();
       }
-    } catch (err) {}
+    } catch (err) { }
   }
 
   if (!panelId) {
@@ -115,8 +115,15 @@ function buildRASSControlCommand(seq, account, clientLine, commandContent, recei
   const ts = getTimestamp();
   const lineStr = clientLine.startsWith('L') ? clientLine : `L${clientLine}`;
   const acctStr = account.startsWith('#') ? account.substring(1) : account;
-  const nyyCode = commandContent.endsWith('R]') ? 'NYY004' : 'NYY005';
-  const body = `"SIA-DCS"${seq}${receiver}${lineStr}#${acctStr}[#${acctStr}|${nyyCode}]${commandContent}_${ts}`;
+
+  let body;
+  if (commandContent.startsWith('NYY') || commandContent.startsWith('NCL') || commandContent.startsWith('NOA')) {
+    body = `"SIA-DCS"${seq}${receiver}${lineStr}#${acctStr}[#${acctStr}|${commandContent}]_${ts}`;
+  } else {
+    const nyyCode = commandContent.endsWith('R]') ? 'NYY004' : 'NYY005';
+    body = `"SIA-DCS"${seq}${receiver}${lineStr}#${acctStr}[#${acctStr}|${nyyCode}]${commandContent}_${ts}`;
+  }
+
   const crc = calculateCRC16(body);
   const len = calculateLength(body);
   return `\n${crc}${len}${body}\r`;
@@ -125,6 +132,13 @@ function buildRASSControlCommand(seq, account, clientLine, commandContent, recei
 function getRASSCommandContent(commandName, zone = "000") {
   const cmd = commandName.toUpperCase();
   const zoneStr = String(zone).padStart(3, '0');
+
+  if (cmd === 'NYY040' || cmd === 'GET_ZONE_STATUS_1_30' || cmd === 'READ_ZONE_STATUS_1_30' || cmd === 'READ_PORT_STATUS_1') return 'NYY040';
+  if (cmd === 'NYY041' || cmd === 'GET_ZONE_STATUS_31_60' || cmd === 'READ_ZONE_STATUS_31_60' || cmd === 'READ_PORT_STATUS_2') return 'NYY041';
+  if (cmd === 'READ_PORT_STATUS' || cmd === 'GET_ZONE_STATUS' || cmd === 'READ_ALL_ZONE_STATUS') {
+    if (zone === '31_60' || zone === '2' || Number(zone) > 30) return 'NYY041';
+    return 'NYY040';
+  }
 
   if (cmd === 'ARM' || cmd === 'ARM_ALL') return '[N|004|A]';
   if (cmd === 'DISARM') return '[N|004|D]';
@@ -141,8 +155,15 @@ function getRASSCommandContent(commandName, zone = "000") {
 
   if (cmd === 'READ_ARM_STATUS') return '[N|004|R]';
   if (cmd === 'READ_SIREN_STATUS') return '[N|002|R]';
-  if (cmd === 'READ_ZONE_STATUS') return `[N|003|${zoneStr}|R]`;
-  if (cmd === 'READ_OUTPUT_STATUS') return `[N|005|${String(Number(zone)).padStart(2, '0')}|R]`;
+  if (cmd === 'READ_ZONE_STATUS') {
+    if (zone === '000' || zone === '0' || !zone) return 'NYY040';
+    return `[N|003|${zoneStr}|R]`;
+  }
+  if (cmd === 'READ_RELAY_STATUS' || cmd === 'READ_OUTPUT_STATUS') {
+    const outNum = Number(zone);
+    if (outNum > 0) return `[N|005|${String(outNum).padStart(2, '0')}|R]`;
+    return `[N|005|01|R]`;
+  }
   if (cmd === 'READ_SYSTEM_NAME') return '[N|008|R]';
 
   const outStr = String(Number(zone)).padStart(2, '0');
@@ -202,7 +223,7 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
       currentAccount = rassDev.panel_id;
       activeSockets.set(currentAccount, socket);
       panelMetadata.set(currentAccount, { clientId: rassDev.client_id, macId: decoded.macId });
-      
+
       const ack = buildACK(header);
       const regResponse = buildRASSRegistrationResponse(header.sequence, decoded.macId, rassDev.client_id, rassDev.panel_id, header.receiver);
       socket.write(ack + regResponse);
@@ -240,17 +261,22 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         }
 
         const baseValues = [currentAccount, seqno, decoded.zone || '000', decoded.code, decoded.formattedDate || receivedtime, decoded.event || ''];
-        try { await pool.query(`INSERT INTO alerts_copy (panelid, seqno, zone, alarm, createtime, alerttype, status) VALUES (?, ?, ?, ?, ?, ?,'O')`, baseValues); } catch (err) {}
-        try { await pool.query(`INSERT INTO ${targetTable} (panelid, seqno, zone, alarm, createtime, alerttype, status, priority, level) VALUES (?, ?, ?, ?, ?, ?, 'O', ?, ?)`, [...baseValues, priority, level]); } catch (err) {}
+        try { await pool.query(`INSERT INTO alerts_copy (panelid, seqno, zone, alarm, createtime, alerttype, status) VALUES (?, ?, ?, ?, ?, ?,'O')`, baseValues); } catch (err) { }
+        try { await pool.query(`INSERT INTO ${targetTable} (panelid, seqno, zone, alarm, createtime, alerttype, status, priority, level) VALUES (?, ?, ?, ?, ?, ?, 'O', ?, ?)`, [...baseValues, priority, level]); } catch (err) { }
       }
     }
-    if (decoded.code === "RPS_RES" && decoded.zonesList) {
+
+    // -------------------------------------------------
+    // 💾 Save Zone Statuses into panel_health
+    // -------------------------------------------------
+    const zoneItems = decoded.sensors || decoded.zonesList;
+    if (zoneItems && Array.isArray(zoneItems) && zoneItems.length > 0 && currentAccount) {
       try {
         const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
         let panelName = '';
         try {
-          const [siteRows] = await pool.query("SELECT Panel_Make FROM sites_zicom WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
+          const [siteRows] = await pool.query("SELECT Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
           if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
         } catch (err) { /* ignore */ }
 
@@ -268,14 +294,16 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
           setValues.push(panelName);
         }
 
-        decoded.zonesList.forEach(z => {
-          if (z.zone >= 1 && z.zone <= 60) {
-            const colName = `zon${z.zone}`;
+        zoneItems.forEach(z => {
+          const zNum = parseInt(z.zone, 10);
+          if (zNum >= 1 && zNum <= 60) {
+            const colName = `zon${zNum}`;
+            const stVal = z.status || z.description || 'U';
             columns.push(colName);
             placeholders.push('?');
-            values.push(z.status);
+            values.push(stVal);
             setQueryArr.push(`${colName} = ?`);
-            setValues.push(z.status);
+            setValues.push(stVal);
           }
         });
 
@@ -283,24 +311,34 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
         if (rows && rows.length > 0) {
           const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
           await pool.query(updateQuery, [...setValues, currentAccount]);
-          console.log(`✅ [RASS] Zone status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
+          console.log(`✅ [RASS] Zone status (${zoneItems.length} zones, with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
         } else {
           const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
           await pool.query(insertQuery, values);
-          console.log(`✅ [RASS] Zone status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
+          console.log(`✅ [RASS] Zone status (${zoneItems.length} zones, with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
         }
       } catch (dbErr) {
         console.error(`❌ [RASS] DB Error saving zone status to panel_health:`, dbErr.message);
       }
     }
 
-    if (decoded.code === "RCS_RES" && decoded.channelList) {
+    // Auto-queue NYY041 (zones 31-60) after receiving NYY040 (zones 1-30)
+    if (decoded.zone === '040' && currentAccount) {
+      console.log(`\n🔄 [RASS] Auto-queuing NYY041 (Zone Status 31-60) for Panel #${currentAccount}...`);
+      queueCommand(currentAccount, 'NYY041', '000');
+    }
+
+    // -------------------------------------------------
+    // 💾 Save Output / Relay Statuses into panel_health
+    // -------------------------------------------------
+    const relayItems = decoded.channelList || decoded.relayList || decoded.outputs;
+    if (((relayItems && Array.isArray(relayItems) && relayItems.length > 0) || (decoded.outputNo !== undefined && decoded.outputNo !== null)) && currentAccount) {
       try {
         const receivedtime = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
         let panelName = '';
         try {
-          const [siteRows] = await pool.query("SELECT Panel_Make FROM sites_zicom WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
+          const [siteRows] = await pool.query("SELECT Panel_Make FROM sites WHERE NewPanelID = ? LIMIT 1", [currentAccount]);
           if (siteRows && siteRows.length > 0) panelName = siteRows[0].Panel_Make || '';
         } catch (err) { /* ignore */ }
 
@@ -318,29 +356,44 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
           setValues.push(panelName);
         }
 
-        decoded.channelList.forEach(c => {
-          if (c.channel >= 1 && c.channel <= 20) {
-            const colName = `relay${c.channel}`;
+        if (relayItems && Array.isArray(relayItems)) {
+          relayItems.forEach(c => {
+            const ch = parseInt(c.channel || c.relayId || c.output, 10);
+            if (ch >= 1 && ch <= 20) {
+              const colName = `relay${ch}`;
+              const stVal = String(c.status !== undefined ? c.status : c.state);
+              columns.push(colName);
+              placeholders.push('?');
+              values.push(stVal);
+              setQueryArr.push(`${colName} = ?`);
+              setValues.push(stVal);
+            }
+          });
+        } else if (decoded.outputNo !== undefined && decoded.outputNo !== null) {
+          const ch = parseInt(decoded.outputNo, 10);
+          if (ch >= 1 && ch <= 20) {
+            const colName = `relay${ch}`;
+            const stVal = String(decoded.outputState);
             columns.push(colName);
             placeholders.push('?');
-            values.push(c.status);
+            values.push(stVal);
             setQueryArr.push(`${colName} = ?`);
-            setValues.push(c.status);
+            setValues.push(stVal);
           }
-        });
+        }
 
         const [rows] = await pool.query("SELECT id FROM panel_health WHERE panelid = ? LIMIT 1", [currentAccount]);
         if (rows && rows.length > 0) {
           const updateQuery = `UPDATE panel_health SET ${setQueryArr.join(', ')} WHERE panelid = ?`;
           await pool.query(updateQuery, [...setValues, currentAccount]);
-          console.log(`✅ [RASS] Channel status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
+          console.log(`✅ [RASS] Relay/Output status (with IP/Name) UPDATED in panel_health for Panel #${currentAccount}`);
         } else {
           const insertQuery = `INSERT INTO panel_health (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
           await pool.query(insertQuery, values);
-          console.log(`✅ [RASS] Channel status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
+          console.log(`✅ [RASS] Relay/Output status (with IP/Name) INSERTED into panel_health for Panel #${currentAccount}`);
         }
       } catch (dbErr) {
-        console.error(`❌ [RASS] DB Error saving channel status to panel_health:`, dbErr.message);
+        console.error(`❌ [RASS] DB Error saving relay/output status to panel_health:`, dbErr.message);
       }
     }
 
@@ -368,24 +421,24 @@ function handleSocketEvents(socket, remoteIp, initialAccount = null) {
   });
 
   socket.on("end", () => { if (currentAccount) activeSockets.delete(currentAccount); });
-  socket.on("error", () => {});
+  socket.on("error", () => { });
   socket.on("close", () => { if (currentAccount) activeSockets.delete(currentAccount); });
 }
 
 function initiatePanelConnection(panelId, ip) {
   console.log(`\n⏳ [RASS] Attempting OUTGOING connection to Panel #${panelId} at IP: ${ip}:${TCP_PORT}...`);
   const socket = new net.Socket();
-  
+
   socket.connect(TCP_PORT, ip, () => {
     console.log(`✅ [RASS] Successfully connected to Panel #${panelId} (${ip})`);
     activeSockets.set(panelId, socket);
     handleSocketEvents(socket, ip, panelId);
   });
-  
+
   socket.on("error", (err) => {
     console.log(`❌ [RASS] Connection failed to Panel #${panelId} (${ip}): ${err.message}`);
   });
-  
+
   socket.on("close", () => {
     console.log(`⚠️ [RASS] Connection closed for Panel #${panelId} (${ip}). Retrying in 3 minutes...`);
     setTimeout(() => {
@@ -398,7 +451,7 @@ function initiatePanelConnection(panelId, ip) {
 
 async function connectToAllPanels() {
   try {
-    const [rows] = await pool.query("SELECT NewPanelID, dvrip FROM sites_zicom WHERE Panel_Make LIKE 'rass' AND dvrip IS NOT NULL AND dvrip != '' LIMIT 15");
+    const [rows] = await pool.query("SELECT NewPanelID, dvrip FROM sites WHERE Panel_Make LIKE 'rass' AND dvrip IS NOT NULL AND dvrip != '' LIMIT 15");
     if (rows && rows.length > 0) {
       console.log(`\n🔄 [RASS] Found ${rows.length} RASS panels with IPs in database. Initiating outgoing connections...`);
       for (const row of rows) {
@@ -417,7 +470,7 @@ async function connectToAllPanels() {
 function startServer() {
   // connectToAllPanels();
   // setInterval(connectToAllPanels, 180000); // 3 minutes
-  
+
   const tcpServer = net.createServer((socket) => {
     const remoteIp = socket.remoteAddress ? socket.remoteAddress.replace(/^.*:/, '').trim() : null;
     console.log(`\n📡 [RASS] Incoming TCP Connection Initiated from IP: ${remoteIp}`);
@@ -430,7 +483,7 @@ function checkConnection(account, maxWait = 60000) {
   return new Promise((resolve) => {
     const sock = activeSockets.get(account);
     if (sock && !sock.destroyed) return resolve({ success: true, status: "online" });
-    
+
     if (!connectWaiters.has(account)) connectWaiters.set(account, []);
     let done = false;
     connectWaiters.get(account).push(() => {
@@ -469,7 +522,7 @@ function queueCommand(account, command, zone, maxWait = 60000) {
         }
       });
       // Attempt on-demand connection if not already connected
-      pool.query("SELECT dvrip FROM sites_zicom WHERE NewPanelID = ? AND dvrip IS NOT NULL AND dvrip != '' LIMIT 1", [account])
+      pool.query("SELECT dvrip FROM sites WHERE NewPanelID = ? AND dvrip IS NOT NULL AND dvrip != '' LIMIT 1", [account])
         .then(([rows]) => {
           if (rows && rows.length > 0) {
             const ip = String(rows[0].dvrip).trim();

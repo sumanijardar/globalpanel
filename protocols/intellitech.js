@@ -21,15 +21,15 @@ function startServer() {
     // Only accept POST requests
     if (req.method === 'POST') {
       let body = '';
-      
+
       req.on('data', chunk => {
         body += chunk.toString();
       });
-      
+
       req.on('end', async () => {
         try {
           const payload = JSON.parse(body);
-          
+
           if (!payload.deviceId || !payload.data) {
             res.writeHead(400);
             return res.end(JSON.stringify({ error: "Invalid payload format" }));
@@ -37,7 +37,7 @@ function startServer() {
 
           const currentAccount = payload.deviceId;
           const dataDate = payload.dataDate;
-          
+
           // Update active devices
           activeDevices.set(currentAccount, Date.now());
 
@@ -45,12 +45,12 @@ function startServer() {
           if (payload.data.status && Array.isArray(payload.data.status)) {
             for (const item of payload.data.status) {
               const decoded = decodeIntellitech(item, currentAccount, dataDate);
-              
+
               if (decoded.code !== "XX") {
                 const alarmCode = decoded.code;
                 const seqno = "0000"; // Webhook doesn't have a sequence number
                 const receivedtime = getTimestamp();
-                
+
                 // Route mapping logic (similar to Mayur/RASS)
                 let priority = 'N', level = 0, targetTable = 'alerts';
                 const configsArray = panelConfigCache.get('INTELLITECH'); // Or use a generic if needed
@@ -150,7 +150,7 @@ function getStatus() {
 function checkConnection(account, waitMs) {
   return new Promise((resolve) => {
     if (activeDevices.has(account) && (Date.now() - activeDevices.get(account) < 120000)) {
-       return resolve({ success: true, status: 'connected', account });
+      return resolve({ success: true, status: 'connected', account });
     }
     // Webhook can't actively ping, just return disconnected
     resolve({ success: false, status: 'disconnected', account });

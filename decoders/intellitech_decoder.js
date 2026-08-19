@@ -14,7 +14,8 @@ function decodeIntellitech(item, deviceId, dataDateStr) {
         zone: item.id.toString(),
         partition: "1",
         timestamp: null,
-        formattedDate: null
+        formattedDate: null,
+        status: item.status
     };
 
     // Format Date: 20260811170202 -> 2026-08-11 17:02:02
@@ -41,44 +42,36 @@ function decodeIntellitech(item, deviceId, dataDateStr) {
 
     // Apply mapping
     if (idStr.startsWith("4")) {
-        // Zones
-        if (statusVal === 5) {
-            result.code = "BA";
-            result.event = "Perimeter / Interior alarm";
-        } else if (statusVal === 6) {
-            result.code = "BR";
-            result.event = "Zone recovery (Delay/Perimeter/Interior)";
-        } else {
-            result.code = "XX";
-            result.event = "Unknown Zone Status";
+        switch (statusVal) {
+            case 0: result.code = "ZN"; result.event = "Zone Normal"; break;
+            case 1: result.code = "ZA"; result.event = "Zone Alarm"; break;
+            case 5: result.code = "BA"; result.event = "Perimeter / Interior alarm"; break;
+            case 6: result.code = "BR"; result.event = "Zone recovery (Delay/Perimeter/Interior)"; break;
+            default: result.code = "XX"; result.event = `Unknown Zone Status (${statusVal})`; break;
         }
     } else if (idStr.startsWith("3")) {
-        // Sirens
-        if (statusVal === 5) {
-            result.code = "YA";
-            result.event = "Siren fault";
-        } else if (statusVal === 6) {
-            result.code = "YH";
-            result.event = "Siren restored";
-        } else {
-            result.code = "XX";
-            result.event = "Unknown Siren Status";
+        switch (statusVal) {
+            case 1: result.code = "ON"; result.event = "Siren Schedule On"; break;
+            case 2: result.code = "OF"; result.event = "Siren Schedule Off"; break;
+            case 3: result.code = "FO"; result.event = "Siren Force On"; break;
+            case 4: result.code = "FF"; result.event = "Siren Force Off"; break;
+            case 5: result.code = "SCH"; result.event = "Siren In Schedule"; break;
+            case 6: result.code = "RST"; result.event = "Siren Off for 10 Sec then On"; break;
+            default: result.code = "XX"; result.event = `Unknown Siren Status (${statusVal})`; break;
         }
     } else if (idStr.startsWith("2")) {
-        // Relays
-        if (statusVal === 5) {
-            result.code = "RY"; // Custom code for Relay ON
-            result.event = "Relay ON";
-        } else if (statusVal === 6) {
-            result.code = "RX"; // Custom code for Relay OFF
-            result.event = "Relay OFF";
-        } else {
-            result.code = "XX";
-            result.event = "Unknown Relay Status";
+        switch (statusVal) {
+            case 1: result.code = "ON"; result.event = "Relay Schedule On"; break;
+            case 2: result.code = "OF"; result.event = "Relay Schedule Off"; break;
+            case 3: result.code = "FO"; result.event = "Relay Force On"; break;
+            case 4: result.code = "FF"; result.event = "Relay Force Off"; break;
+            case 5: result.code = "SCH"; result.event = "Relay In Schedule"; break;
+            case 6: result.code = "RST"; result.event = "Relay Off for 10 Sec then On"; break;
+            default: result.code = "XX"; result.event = `Unknown Relay Status (${statusVal})`; break;
         }
     } else {
         result.code = "XX";
-        result.event = "Unknown Component";
+        result.event = `Unknown Component (${idStr})`;
     }
 
     return result;

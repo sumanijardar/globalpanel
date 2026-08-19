@@ -17,6 +17,7 @@ server_config.json
 *.exe
 *.csv
 Goldbox Configuration Settings.docx
+VcopIP_Protocol 2 0 01.xls
 
 # Output and dump files
 *.log

@@ -121,12 +121,12 @@ function decodeSIA(message) {
     // 2. Extract Data inside first brackets [...] - RASS format has no partition slashes
     const bracketMatch = message.match(/\[(.*?)\]/);
     if (bracketMatch) {
-        const content = bracketMatch[1]; // e.g., "#000014|NYY040"
-        const parts = content.split("|");
+        const content = bracketMatch[1]; // e.g., "#000014|NYY040" or "#A23456||NYY040"
+        const parts = content.split("|").filter(p => p && p.trim().length > 0);
 
         if (parts.length > 1) {
             result.account = parts[0].replace("#", "").trim();
-            const eventPart = parts[1]; // e.g., "NYY040"
+            const eventPart = parts[1].trim(); // e.g., "NYY040"
 
             // RASS format: Skip first char 'N', next 2 are event code, last 3 are zone
             result.code = eventPart.substring(1, 3);
@@ -196,8 +196,8 @@ function decodeSIA(message) {
                     result.systemName = sysName;
                 }
             }
-            // NYY040 or NYY041 (Sensor status grids)
-            else if ((result.zone === '040' || result.zone === '041') && secParts.length > 1) {
+            // NYY030 to NYY041 (Sensor status grids)
+            else if ((result.zone === '040' || result.zone === '041' || (parseInt(result.zone, 10) >= 30 && parseInt(result.zone, 10) <= 41)) && secParts.length > 1) {
                 const sensors = [];
                 for (let i = 1; i < secParts.length; i++) {
                     const item = secParts[i];
